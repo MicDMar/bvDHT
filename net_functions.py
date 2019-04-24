@@ -63,9 +63,8 @@ def recvVal(conn):
 # Send/Recv Network Addresses
 
 def sendAddress(conn, addr):
-    msg = "%s:%d" % (addr)
     sendInt(conn, len(msg))
-    conn.sendall(msg.encode())
+    conn.sendall(addr.encode())
 
 def recvAddress(conn):
     msgLen = recvInt(conn)
@@ -76,3 +75,12 @@ def getLocalIPAddress():
     s = socket(AF_INET, SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
     return s.getsockname()[0]
+
+#############################
+# Send/Recv Network Addresses
+def recvBool(conn):
+    return recvAll(conn, 1).decode("UTF-8") == "T"
+
+def sendBool(conn, boool):
+    msg = "T" if boool else "F"
+    conn.sendall(msg.encode())
