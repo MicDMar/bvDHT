@@ -63,7 +63,7 @@ def recvVal(conn):
 # Send/Recv Network Addresses
 
 def sendAddress(conn, addr):
-    sendInt(conn, len(msg))
+    sendInt(conn, len(addr))
     conn.sendall(addr.encode())
 
 def recvAddress(conn):

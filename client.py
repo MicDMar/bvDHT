@@ -3,6 +3,7 @@ from net_functions import *
 import hashlib
 import math
 import os
+import sys
 import threading
 
 DEFAULT_PORT = 3000
@@ -40,9 +41,12 @@ class FingerTable:
     def get_successor(self):
         return self.successor
 
-    def set_predeccesor(self, peer):
-        self.predeccesor = peer
-        self.add(predeccesor)
+    def set_predecessor(self, peer):
+        self.predecessor = peer
+        self.add(predecessor)
+
+    def get_predecessor(self):
+        return self.predecessor
 
     def remove(peer_addr):
         self.table = [x for x in self.table if x.address != peer_addr]
@@ -57,14 +61,20 @@ REPO_PATH = None
 lock = threading.Lock
 peers = None
 
+def get_addr_tuple(addr_str):
+    split = addr_str.split(":")
+    return (split[0], int(split[1]))
+
 """
 Attempt to join the network through this peer
 """
 def connect(peer_addr):
     conn = socket(AF_INET, SOCK_STREAM)
     conn.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    conn.connect(peer_addr.split(':')) #FIXME: check if tuple is needed
-    
+    conn.connect(get_addr_tuple(peer_addr)) #FIXME: check if tuple is needed
+    # TODO: Determine our predecessor through the connection
+
+    # Now that we have the predecessor
     conn.sendall("CON".encode())
     sendAddress(conn, peer_addr)
     if recvBool(conn):
@@ -81,9 +91,9 @@ def connect(peer_addr):
     else:
         return False
 
-def disconnect(pred_addr):
+def disconnect():
     #TODO
-    lock.acquire():
+    lock.acquire()
 
     lock.release()
 
@@ -170,26 +180,24 @@ if __name__ == "__main__":
     port = os.environ.get('PORT', DEFAULT_PORT)
     REPO_PATH = os.environ.get('REPOSITORY', DEFAULT_REPO_PATH)
 
-
     local_ip = getLocalIPAddress()
     peers = FingerTable("{}:{}".format(local_ip, port))
 
     debug()
     print(peers)
 
-    # Setup the TCP socket
-    listener = socket(AF_INET, SOCK_STREAM)
-    listener.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1) # Allow address to be reused
-    listener.bind((address, port))
-    listener.listen()
-
-    print("Server is listening on {}:{}".format(address, port))
-
     # Determine if we're the first person on the DHT
     # If so, call connect on the peer
     if address:
         # Connect to DHT
         connect(address)
+
+    # Setup the TCP socket
+    listener = socket(AF_INET, SOCK_STREAM)
+    listener.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1) # Allow address to be reused
+    listener.bind((local_ip, port))
+    listener.listen()
+    print("Server is listening on {}:{}".format(local_ip, port))
 
     while True:
         print("Awaiting connection")
