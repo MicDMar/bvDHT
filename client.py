@@ -40,16 +40,26 @@ class FingerTable:
     def get_successor(self):
         return self.successor
 
+    def set_predeccesor(self, peer):
+        self.predeccesor = peer
+        self.add(predeccesor)
+
+    def remove(peer_addr):
+        self.table = [x for x in self.table if x.address != peer_addr]
+
     def __repr__(self):
         s = ""
         for peer in self.table:
             s += str(peer)
         return "<FingerTable: [{}]>".format(s)
 
+REPO_PATH = None
 lock = threading.Lock
-
 peers = None
 
+"""
+Attempt to join the network through this peer
+"""
 def connect(peer_addr):
     conn = socket(AF_INET, SOCK_STREAM)
     conn.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
@@ -72,16 +82,16 @@ def connect(peer_addr):
         return False
 
 def disconnect(pred_addr):
+    #TODO
     lock.acquire():
 
     lock.release()
-#TODO
 
 #Start of "public" functions.
 
 def exists(key):
+    #TODO
     pass
-#TODO
 
 def get(key):
     #TODO
@@ -99,11 +109,44 @@ def remove(key):
     #TODO
     pass
 
+def pulse():
+    # TODO
+    pass
+
+
 """
 Add the value to our local storage
 """
 def insert_val(key, val):
-    pass
+    with open(repo_path(key), "w") as f:
+        f.write(val)
+
+
+"""
+Get the value corresponding to key from local storage
+"""
+def get_val(key):
+    if exists_local(key):
+        with open(repo_path(key)) as f:
+            return f.read()
+    else:
+        return None
+
+
+"""
+Check if the item exists locally
+(If we don't own the key space then it does not)
+"""
+def exists_local(key):
+    # TODO: Check if this is our key
+    return os.path.isfile(repo_path(key))
+
+
+"""
+Get the path to the file corresponding to the key
+"""
+def repo_path(key):
+    return os.path.join(REPO_PATH, key)
 
 def debug():
     peer = Peer("10.92.16.58", 3000)
@@ -125,7 +168,7 @@ if __name__ == "__main__":
         address = os.environ.get('ADDRESS', None)
 
     port = os.environ.get('PORT', DEFAULT_PORT)
-    repo = os.environ.get('REPOSITORY', DEFAULT_REPO_PATH)
+    REPO_PATH = os.environ.get('REPOSITORY', DEFAULT_REPO_PATH)
 
 
     local_ip = getLocalIPAddress()
