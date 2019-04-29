@@ -20,15 +20,17 @@ def get_addr_tuple(addr_str):
     split = addr_str.split(":")
     return (split[0], int(split[1]))
 
+def get_addr_str(addr_tuple):
+    return "{}:{}".format(*addr_tuple)
+
 """
 Attempt to join the network through this peer
 """
 def connect(peer_addr):
-    conn = socket(AF_INET, SOCK_STREAM)
-    conn.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    conn.connect(get_addr_tuple(peer_addr)) #FIXME: check if tuple is needed
+    conn = open_connection(peer_addr)
     # Find the hash right before ours
-    peer_addr = owns(peers.prev_hash())
+    closest_known = peers.get(peers.prev_hash())
+    peer_addr = owns(peers.prev_hash(), closest_known)
 
     # Now that we have the predecessor
     conn.sendall("CON".encode())
@@ -96,9 +98,21 @@ def insert(key, value):
     #TODO
     pass
 
-def owns(key):
-    #TODO
-    pass
+def owns(hsh, peer):
+    # Check if peer owns the hash
+    conn = open_connection(peer.address)
+    conn.sendall("OWN".encode())    
+    # TODO: Figure out how to get the key to send, or if we use the hash
+    conn.sendall(bytes(hsh))
+
+    # Check if the closest reported is the same as the peer we're querying
+    closest = get_addr_str(recvAddress(conn))
+    if closest is peer:
+        # This is the owner of the file
+        return peer
+    else:
+        # We need to go deeper
+        return owns(hsh, closest)
 
 def remove(key):
     #TODO
