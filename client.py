@@ -25,8 +25,8 @@ def connect(peer_addr):
     conn = socket(AF_INET, SOCK_STREAM)
     conn.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     conn.connect(get_addr_tuple(peer_addr)) #FIXME: check if tuple is needed
-    # TODO: Determine our predecessor through the connection
     # Find the hash right before ours
+    peer_addr = owns(peers.prev_hash())
 
     # Now that we have the predecessor
     conn.sendall("CON".encode())
@@ -36,6 +36,7 @@ def connect(peer_addr):
         successor = Peer(*recvAddress(conn))
         peers.set_successor(successor)
         
+        # Receive the items that now belong to us
         num_items = recvInt(conn)
         for i in range(num_items):
             key = recvKey(conn)

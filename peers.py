@@ -1,9 +1,9 @@
-import hashlib 
+from hash_functions import get_hash, hash_size
 
 class Peer:
     def __init__(self, address, port):
         self.address = "{}:{}".format(address, port)
-        self.hash = int.from_bytes(hashlib.sha1(self.address.encode()).digest(), byteorder="big")
+        self.hash = get_hash(self.address)
 
     def __repr__(self):
         return "<Peer: {} : {}>".format(self.address, self.hash)
@@ -39,8 +39,18 @@ class FingerTable:
     def get_predecessor(self):
         return self.predecessor
 
-    def remove(peer_addr):
+    def remove(self, peer_addr):
         self.table = [x for x in self.table if x.address != peer_addr]
+
+    def our_hash(self):
+        return self.hash
+
+    """
+    Get the hash directly before ours
+    (The last hash belonging to somebody else before us)
+    """
+    def prev_hash(self):
+        return (self.our_hash() - 1) % hash_size()
 
     def __repr__(self):
         s = ""

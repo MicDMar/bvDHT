@@ -1,4 +1,4 @@
-
+from enum import Enum
 from socket import *
 
 ############################
@@ -77,10 +77,25 @@ def getLocalIPAddress():
     return s.getsockname()[0]
 
 #############################
-# Send/Recv Network Addresses
+# Send/Recv Network bool
 def recvBool(conn):
     return recvAll(conn, 1).decode("UTF-8") == "T"
 
 def sendBool(conn, boool):
     msg = "T" if boool else "F"
     conn.sendall(msg.encode())
+
+#############################
+# Send/Recv Network Result/Status
+class Result(Enum):
+    N = -1
+    F = 0
+    T = 1
+    
+def recvStatus(conn):
+    msg = recvAll(conn, 1).decode("UTF-8")
+    return Result[msg]
+
+def sendStatus(conn, status):
+    msg = status.name.encode()
+    conn.sendall(msg)
