@@ -2,9 +2,11 @@ from socket import *
 from net_functions import *
 import hashlib
 import math
+import multiprocessing
 import os
 import sys
 import threading
+import time
 
 from peers import *
 DEFAULT_PORT = 3000
@@ -55,7 +57,7 @@ def disconnect():
 #Start of "public" functions.
 
 def exists(key):
-    #Client sends protocol message for EXISTS request
+    #Client sends protocol message for EXISTS request.
     conn.sendall("EXI".encode())
     conn.sendall(key.encode())
     response = recvStatus(conn);
@@ -68,14 +70,14 @@ def exists(key):
     return
     
 def get(key):
-    #Client sends protocol message for GET request
+    #Client sends protocol message for GET request.
     conn.sendall("GET".encode())
     conn.sendall(key.encode())
     response = recvStatus(conn);
     
-    #They responded with T so they will also send valSize and fileData
+    #They responded with T so they will also send valSize and fileData.
     if response == result.T:
-        #TODO the the item. It exists and is there
+        #Donwlad the item. It exists and is there.
         valSize = recvInt(conn)
         fileData = recvAll(conn, valSize)
         insert_val(key, fileData)
@@ -88,6 +90,7 @@ def get(key):
     #Peer does not own this keyspace.
     else:
         owns(key)
+        return
 
 def insert(key, value):
     #TODO
@@ -102,9 +105,24 @@ def remove(key):
     pass
 
 def pulse():
-    # TODO
-    pass
+    #Client sends protocol message for PULSE request.
+    conn.sendall("PUL".encode())
 
+    #Start up another process that waits 5 seconds for a response.
+    p = multiprocessing.Process(target=pulse_response)
+    p.start()
+
+    p.join(5)
+    
+    #If the peer hasn't sent us a pulse response within the allotted time
+    #kill the function; peer is dead.
+    if p.is_alive():
+        print("Pulse response never returned. Killing function call.")
+        p.terminate()
+        p.join()
+    
+    return
+    
 def peer_exists(key, conn):
     pass
 
@@ -119,7 +137,11 @@ def peer_owns(key, conn):
 
 def peer_remove(key, conn):
     pass
-    
+
+
+def pulse_response():
+    response = recvStatus(conn);
+
 """
 Add the value to our local storage
 """
