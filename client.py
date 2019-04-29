@@ -7,7 +7,6 @@ import sys
 import threading
 
 from peers import *
-
 DEFAULT_PORT = 3000
 DEFAULT_REPO_PATH = "DHT_files"
 
@@ -55,12 +54,39 @@ def disconnect():
 #Start of "public" functions.
 
 def exists(key):
-    #TODO
-    pass
+    #Client sends protocol message for EXISTS request
+    conn.sendall("EXI".encode())
+    conn.sendall(key.encode())
+    response = recvStatus(conn);
 
+    if response == response.N:
+        owns(key)
+        return
+
+    print("Item does exist in keyspace.") if response == result.T else print("Item no longer exists in keyspace.")
+    return
+    
 def get(key):
-    #TODO
-    pass
+    #Client sends protocol message for GET request
+    conn.sendall("GET".encode())
+    conn.sendall(key.encode())
+    response = recvStatus(conn);
+    
+    #They responded with T so they will also send valSize and fileData
+    if response == result.T:
+        #TODO the the item. It exists and is there
+        valSize = recvInt(conn)
+        fileData = recvAll(conn, valSize)
+        insert_val(key, fileData)
+
+    #They responded with F meaning the peer owns the space but the items not there.
+    elif response == result.F:
+        print("Item no longer exists.")
+        return
+    
+    #Peer does not own this keyspace.
+    else:
+        owns(key)
 
 def insert(key, value):
     #TODO
@@ -78,12 +104,26 @@ def pulse():
     # TODO
     pass
 
+def peer_exists(key, conn):
+    pass
 
+def peer_get(key, conn):
+    pass
+
+def peer_insert(key, value, conn):
+    pass
+
+def peer_owns(key, conn):
+    pass
+
+def peer_remove(key, conn):
+    pass
+    
 """
 Add the value to our local storage
 """
 def insert_val(key, val):
-    with open(repo_path(key), "w") as f:
+    with open(repo_path(key), "wb") as f:
         f.write(val)
 
 
