@@ -71,15 +71,15 @@ def exists(key):
     print("Item does exist in keyspace.") if response == result.T else print("Item no longer exists in keyspace.")
     return
     
-def get(key):
+def get(hsh):
     #Client sends protocol message for GET request.
     conn.sendall("GET".encode())
-    conn.sendall(key.encode())
+    conn.sendall(hsh.encode())
     response = recvStatus(conn);
     
     #They responded with T so they will also send valSize and fileData.
     if response == result.T:
-        #Donwlad the item. It exists and is there.
+        #Download the item. It exists and is there.
         valSize = recvInt(conn)
         fileData = recvAll(conn, valSize)
         insert_val(key, fileData)
@@ -91,7 +91,7 @@ def get(key):
     
     #Peer does not own this keyspace.
     else:
-        owns(key)
+        owns(hsh)
         return
 
 def insert(key, value):
