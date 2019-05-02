@@ -62,32 +62,34 @@ def exists(key):
     #Client sends protocol message for EXISTS request.
     conn.sendall("EXI".encode())
     sendKey(key)
-    response = recvStatus(conn);
+    response = recvStatus(conn)
 
-    if response == response.N:
+    #Peer does not own this keyspace. Find out who does.
+    if response is Result.N:
         owns(key)
         return exists(key)
 
-    return True if response == result.T else return False
+    #At this point either the item exists or it doesn't.
+    return True if response is Result.T else return False
     
 def get(key):
     #Client sends protocol message for GET request.
     conn.sendall("GET".encode())
     sendKey(conn, key)
-    response = recvStatus(conn);
+    response = recvStatus(conn)
     
     #They responded with T so they will also send valSize and fileData.
-    if response == result.T:
+    if response is Result.T:
         #Download the item. It exists and is there.
         fileData = recvVal(conn)
         insert_val(hsh, fileData)
 
     #They responded with F meaning the peer owns the space but the items not there.
-    elif response == result.F:
+    elif response is Result.F:
         print("Item no longer exists.")
         return
     
-    #Peer does not own this keyspace.
+    #Peer does not own this keyspace. Find out who does.
     else:
         owns(key)
         return
@@ -114,9 +116,18 @@ def owns(peer, key):
         # We need to go deeper
         return owns(key, closest)
 
-def remove(key):
-    #TODO
-    pass
+def remove(conn, key):
+    #client sends protocol message for REMOVE request.
+    conn.sendall("REM".encode())
+    sendKey(conn, key)
+    response = recvStatus(conn)
+    
+    #Peer does not own this keyspace. Find out who does
+    if response == Result.N:
+        owns(conn, key)
+
+    #At this point ither the item was removed successfully or it wasn't
+    return True if response is Result.T else return False
 
 def pulse(conn):
     #Client sends protocol message for PULSE request.
