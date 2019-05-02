@@ -93,8 +93,26 @@ def get(key):
         return
 
 def insert(key, value):
-    #TODO
-    pass
+    # Identify who to send to
+    owner = owns(peers.get(key).address, key)
+    conn = open_connection(owner.address) 
+    
+    # TODO
+    conn.sendall("INS".encode()) 
+    result = recvStatus(conn)
+
+    if result is Result.T:
+        # We're clear to send the data
+        sendVal(conn, value)
+        if recvBool(conn) is False:
+            # We're not good, probably won't happen
+            pass
+    elif result is Result.N:
+        # We need to find the actual owner, it changed 
+        # TODO: Make sure this is okay
+        insert(key, value)
+
+    
 
 """
 Using peer as a starting point, find the owner
