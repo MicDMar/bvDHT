@@ -61,28 +61,26 @@ def disconnect():
 def exists(key):
     #Client sends protocol message for EXISTS request.
     conn.sendall("EXI".encode())
-    conn.sendall(key.encode())
+    sendKey(key)
     response = recvStatus(conn);
 
     if response == response.N:
         owns(key)
-        return
+        return exists(key)
 
-    print("Item does exist in keyspace.") if response == result.T else print("Item no longer exists in keyspace.")
-    return
+    return True if response == result.T else return False
     
-def get(hsh):
+def get(key):
     #Client sends protocol message for GET request.
     conn.sendall("GET".encode())
-    conn.sendall(hsh.encode())
+    sendKey(conn, key)
     response = recvStatus(conn);
     
     #They responded with T so they will also send valSize and fileData.
     if response == result.T:
         #Download the item. It exists and is there.
-        valSize = recvInt(conn)
-        fileData = recvAll(conn, valSize)
-        insert_val(key, fileData)
+        fileData = recvVal(conn)
+        insert_val(hsh, fileData)
 
     #They responded with F meaning the peer owns the space but the items not there.
     elif response == result.F:
@@ -91,7 +89,7 @@ def get(hsh):
     
     #Peer does not own this keyspace.
     else:
-        owns(hsh)
+        owns(key)
         return
 
 def insert(key, value):
@@ -137,21 +135,48 @@ def pulse():
     
     return
     
-def peer_exists(key, conn):
+def peer_exists(conn, key):
+    if owns(key, peers.get(key)) == peers.our_address:
+        data = get_val(key)
+        if data is None:
+            sendStatus(Result.F)
+            return False
+        else:
+            sendStatus(Result.T)
+            sendVal(conn, data)
+            return True
+    else:
+        sendStatus(Result.N)
+        return None
+
+def peer_get(conn, key):
+    if owns(key, peers.get(key)) == peers.our_address:
+        data = get_val(key)
+        if data is None:
+            sendStatus(Result.F)
+            return
+        else:
+            sendStatus(Result.T)
+            sendVal(conn, data)
+            return
+    else:
+        sendStatus(Result.N)
+        return
+
+def peer_insert(conn, key, value):
     pass
 
-def peer_get(key, conn):
+def peer_owns(conn, key):
     pass
 
-def peer_insert(key, value, conn):
+def peer_remove(conn, key):
     pass
 
-def peer_owns(key, conn):
+def peer_connect(conn):
     pass
 
-def peer_remove(key, conn):
+def peer_disconnect(conn):
     pass
-
 
 def pulse_response():
     response = recvStatus(conn);
@@ -197,8 +222,26 @@ def debug():
     print(peers.get(math.inf))
     pass
 
-def handle_connection(conn_info):
-    pass
+def handle_connection(conn):
+    request = recvAll(conn, 3).decode()
+    if request == "GET":
+        peer_get(conn, recvKey(conn))
+    elif request == "EXI":
+        peer_exists(conn, recvKey(conn))
+    elif request == "OWN":
+        peer_owns(conn, recvKey(conn))
+    elif request == "INS":
+        peer_insert(conn, recvValrecvKey(conn), recvVal(conn))
+    elif request == "REM":
+        peer_remove(conn, recvKey(conn))
+    elif request == "CON":
+        peer_connect(conn)
+    elif request == "DIS":
+        peer_disconnect(conn)
+    elif request == "PUL":
+        sendBool(conn, True)
+    else:
+        return
 
 if __name__ == "__main__":
     # The address of the first peer to connect to
