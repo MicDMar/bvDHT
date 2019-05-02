@@ -96,27 +96,29 @@ def insert(key, value):
     #TODO
     pass
 
-def owns(hsh, peer):
+"""
+Using peer as a starting point, find the owner
+"""
+def owns(peer, key):
     # Check if peer owns the hash
     conn = open_connection(peer.address)
     conn.sendall("OWN".encode())    
-    # TODO: Figure out how to get the key to send, or if we use the hash
-    conn.sendall(bytes(hsh))
+    sendKey(conn, key)
 
     # Check if the closest reported is the same as the peer we're querying
     closest = get_addr_str(recvAddress(conn))
     if closest is peer:
         # This is the owner of the file
-        return peer
+        return peer.address
     else:
         # We need to go deeper
-        return owns(hsh, closest)
+        return owns(key, closest)
 
 def remove(key):
     #TODO
     pass
 
-def pulse():
+def pulse(conn):
     #Client sends protocol message for PULSE request.
     conn.sendall("PUL".encode())
 
@@ -167,6 +169,18 @@ def peer_insert(conn, key, value):
     pass
 
 def peer_owns(conn, key):
+    # Find the closest peer
+    closest = peers.get(key)
+    # Pulse peer
+    conn = open_connection(closest.address)
+    if pulse(conn):
+        # Tell peer they're good
+        sendAddress(conn, closest.address)
+    else:
+       # Remove cloest from peer list 
+       peers.remove(closest.address)
+       # TODO: Verify this can't cause any problems if the new peer is dead
+       sendAddress(conn, peers.get(key).address)
     pass
 
 def peer_remove(conn, key):
