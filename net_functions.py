@@ -9,6 +9,12 @@ from socket import *
 ############################
 ############################
 
+def open_connection(addr):
+    conn = socket(AF_INET, SOCK_STREAM)
+    conn.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    conn.connect(get_addr_tuple(addr)) 
+    return conn
+
 # Note: In all of the following functions, conn is a socket object
 
 ##############################
