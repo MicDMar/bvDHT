@@ -132,33 +132,47 @@ def pulse():
         print("Pulse response never returned. Killing function call.")
         p.terminate()
         p.join()
+        return False
     
-    return
+    return True
     
 def peer_exists(conn, key):
+    #Check to see if we own the specified key
     if owns(key, peers.get(key)) == peers.our_address:
         data = get_val(key)
+        
+        #Nothing exists at the specified key
         if data is None:
             sendStatus(Result.F)
             return False
+        
+        #Something does exist at the specified key
         else:
             sendStatus(Result.T)
             sendVal(conn, data)
             return True
+
+    #We don't own the specified key
     else:
         sendStatus(Result.N)
         return None
 
 def peer_get(conn, key):
+    #Check to see if we own the specified key
     if owns(key, peers.get(key)) == peers.our_address:
         data = get_val(key)
+
+        #Nothing exists at the specified key
         if data is None:
             sendStatus(Result.F)
             return
+
+        #Something does exist at the key so send it back
         else:
             sendStatus(Result.T)
             sendVal(conn, data)
             return
+    #We don't own the specified key
     else:
         sendStatus(Result.N)
         return
