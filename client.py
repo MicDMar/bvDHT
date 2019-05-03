@@ -156,18 +156,18 @@ def peer_exists(conn, key):
         
         #Nothing exists at the specified key
         if data is None:
-            sendStatus(Result.F)
+            sendStatus(conn, Result.F)
             return False
         
         #Something does exist at the specified key
         else:
-            sendStatus(Result.T)
+            sendStatus(conn, Result.T)
             sendVal(conn, data)
             return True
 
     #We don't own the specified key
     else:
-        sendStatus(Result.N)
+        sendStatus(conn, Result.N)
         return None
 
 def peer_get(conn, key):
@@ -177,17 +177,17 @@ def peer_get(conn, key):
 
         #Nothing exists at the specified key
         if data is None:
-            sendStatus(Result.F)
+            sendStatus(conn, Result.F)
             return
 
         #Something does exist at the key so send it back
         else:
-            sendStatus(Result.T)
+            sendStatus(conn, Result.T)
             sendVal(conn, data)
             return
     #We don't own the specified key
     else:
-        sendStatus(Result.N)
+        sendStatus(conn, Result.N)
         return
 
 def peer_insert(conn, key, value):
@@ -209,6 +209,24 @@ def peer_owns(conn, key):
     pass
 
 def peer_remove(conn, key):
+    #Check to see if we own the specified key
+    if owns(key, peers.get(key)) == peers.our_address:
+        data = get_val(key)
+
+        #Nothing exists at the specified key so it can't be removed
+        if data is None:
+            sendStatus(conn, Result.F)
+            return
+
+        #Something does exist at the key so remove it
+        else:
+            remove_val(key)
+            sendStatus(conn, Result.T)
+            return
+    #We don't own the specified key
+    else:
+        sendStatus(conn, Result.N)
+        return
     pass
 
 def peer_connect(conn):
@@ -237,6 +255,13 @@ def get_val(key):
             return f.read()
     else:
         return None
+
+
+"""
+Remove the value corresponding to key from local storage
+"""
+def remove_val(key):
+    os.remove(repo_path(key))
 
 
 """
