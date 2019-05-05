@@ -118,13 +118,14 @@ def insert(key, value):
         insert(key, value)
 
     
-def owns(key):
-    return owns(peers.get(key).address, key) 
 
 """
 Using peer as a starting point, find the owner
 """
-def owns(peer, key):
+def owns(key, peer=None):
+    if peer is None:
+        return owns(key, peers.get(key).address) 
+        
     # TODO: Perhaps change this to be non-recursive
     # Check if peer owns the hash
     conn = open_connection(peer.address)
@@ -148,7 +149,7 @@ def remove(conn, key):
     
     #Peer does not own this keyspace. Find out who does
     if response == Result.N:
-        owns(conn, key)
+        owns(key, conn)
 
     #At this point ither the item was removed successfully or it wasn't
     if response is Result.T:
