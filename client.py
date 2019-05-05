@@ -345,9 +345,9 @@ def local_info():
     s = ""
     for key in keys_local(): 
         s += "{}: {} bytes,\n".format(key, val_size(key))
-    return "Stored data: [
+    return """Stored data: [
         {}
-    ]".format(s)
+    ]""".format(s)
     
 
 def debug():
