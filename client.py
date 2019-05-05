@@ -16,13 +16,6 @@ REPO_PATH = DEFAULT_REPO_PATH
 lock = threading.Lock
 peers = None
 
-def get_addr_tuple(addr_str):
-    split = addr_str.split(":")
-    return (split[0], int(split[1]))
-
-def get_addr_str(addr_tuple):
-    return "{}:{}".format(*addr_tuple)
-
 """
 Attempt to join the network through this peer
 """

@@ -9,6 +9,13 @@ from socket import *
 ############################
 ############################
 
+def get_addr_tuple(addr_str):
+    split = addr_str.split(":")
+    return (split[0], int(split[1]))
+
+def get_addr_str(addr_tuple):
+    return "{}:{}".format(*addr_tuple)
+
 def open_connection(addr):
     conn = socket(AF_INET, SOCK_STREAM)
     conn.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
