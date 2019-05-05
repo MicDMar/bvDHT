@@ -357,8 +357,12 @@ def debug():
     print(peers.get(math.inf))
     pass
 
-def handle_connection(conn):
+def handle_connection(conn_info):
+    conn, clientAddr = conn_info
+    print("Received connection from {}".format(clientAddr))
+    
     request = recvAll(conn, 3).decode()
+    print("{} from {}".format(request, clientAddr))
     if request == "GET":
         peer_get(conn, recvKey(conn))
     elif request == "EXI":
@@ -379,6 +383,9 @@ def handle_connection(conn):
         peer_info(conn)
     else:
         return
+    
+    print("Closing connection to {}".format(clientAddr))
+    conn.close()
 
 if __name__ == "__main__":
     # The address of the first peer to connect to
@@ -412,12 +419,5 @@ if __name__ == "__main__":
     print("Server is listening on {}:{}".format(local_ip, port))
 
     while True:
-        print("Awaiting connection")
-        conn, clientAddr = listener.accept()
-        print("Received connection: {}".format(clientAddr))
-
         threading.Thread(target=handle_connection, args=(listener.accept(),), daemon=True).start()
 
-        print("Closing connection: {}".format(clientAddr))
-        print("-" * 15)
-        conn.close()
