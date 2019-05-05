@@ -55,6 +55,6 @@ class FingerTable:
     def __repr__(self):
         s = ""
         for peer in self.table:
-            s += str(peer)
-        return "<FingerTable: [{}]>".format(s)
+            s += "  {},\n".format(peer)
+        return "<FingerTable({}): [\n{}]>".format(self.our_address, s[:])
 

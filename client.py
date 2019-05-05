@@ -12,7 +12,7 @@ from peers import *
 DEFAULT_PORT = 3000
 DEFAULT_REPO_PATH = "DHT_files"
 
-REPO_PATH = None
+REPO_PATH = DEFAULT_REPO_PATH
 lock = threading.Lock
 peers = None
 
@@ -70,7 +70,10 @@ def exists(key):
         return exists(key)
 
     #At this point either the item exists or it doesn't.
-    return True if response is Result.T else return False
+    if response is Result.T:
+        return True
+    else:
+        return False
     
 def get(key):
     #Client sends protocol message for GET request.
@@ -148,7 +151,10 @@ def remove(conn, key):
         owns(conn, key)
 
     #At this point ither the item was removed successfully or it wasn't
-    return True if response is Result.T else return False
+    if response is Result.T:
+        return True
+    else:
+        return False
 
 def pulse(conn):
     #Client sends protocol message for PULSE request.
@@ -226,8 +232,6 @@ def peer_insert(conn, key):
     else:
         # We do not own the key
         sendStatus(conn, Result.N)
-    
-    pass
 
 def peer_owns(conn, key):
     # Find the closest peer
@@ -242,7 +246,6 @@ def peer_owns(conn, key):
        peers.remove(closest.address)
        # TODO: Verify this can't cause any problems if the new peer is dead
        sendAddress(conn, peers.get(key).address)
-    pass
 
 def peer_remove(conn, key):
     #Check to see if we own the specified key
@@ -263,7 +266,13 @@ def peer_remove(conn, key):
     else:
         sendStatus(conn, Result.N)
         return
-    pass
+
+"""
+Send diagnostic information to a peer
+"""
+def peer_info(conn):
+    res = "{}\n{}".format(peers, local_info())
+    sendVal(conn, res.encode()) 
 
 def peer_connect(conn):
     pass
@@ -292,7 +301,6 @@ def get_val(key):
     else:
         return None
 
-
 """
 Remove the value corresponding to key from local storage
 """
@@ -308,12 +316,38 @@ def exists_local(key):
     # TODO: Check if this is our key
     return os.path.isfile(repo_path(key))
 
-
 """
 Get the path to the file corresponding to the key
 """
-def repo_path(key):
-    return os.path.join(REPO_PATH, key)
+def repo_path(key=None):
+    if key:
+        return os.path.join(REPO_PATH, key)
+    else:
+        return REPO_PATH
+
+"""
+Get a list of keys we are storing locally
+"""
+def keys_local():
+    return os.listdir(repo_path())
+
+"""
+Build a string with information on the values stored here
+"""
+def local_info():
+    """
+    Retrieve information relating to size of val
+    """
+    def val_size(key):
+        return os.path.getsize(repo_path(key))
+        
+    s = ""
+    for key in keys_local(): 
+        s += "{}: {} bytes,\n".format(key, val_size(key))
+    return "Stored data: [
+        {}
+    ]".format(s)
+    
 
 def debug():
     peer = Peer("10.92.16.58", 3000)
@@ -340,6 +374,8 @@ def handle_connection(conn):
         peer_disconnect(conn)
     elif request == "PUL":
         sendBool(conn, True)
+    elif request == "INF":
+        peer_info(conn)
     else:
         return
 
