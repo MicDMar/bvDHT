@@ -62,32 +62,34 @@ def exists(key):
     #Client sends protocol message for EXISTS request.
     conn.sendall("EXI".encode())
     sendKey(key)
-    response = recvStatus(conn);
+    response = recvStatus(conn)
 
-    if response == response.N:
+    #Peer does not own this keyspace. Find out who does.
+    if response is Result.N:
         owns(key)
         return exists(key)
 
-    return True if response == result.T else return False
+    #At this point either the item exists or it doesn't.
+    return True if response is Result.T else return False
     
 def get(key):
     #Client sends protocol message for GET request.
     conn.sendall("GET".encode())
     sendKey(conn, key)
-    response = recvStatus(conn);
+    response = recvStatus(conn)
     
     #They responded with T so they will also send valSize and fileData.
-    if response == result.T:
+    if response is Result.T:
         #Download the item. It exists and is there.
         fileData = recvVal(conn)
         insert_val(hsh, fileData)
 
     #They responded with F meaning the peer owns the space but the items not there.
-    elif response == result.F:
+    elif response is Result.F:
         print("Item no longer exists.")
         return
     
-    #Peer does not own this keyspace.
+    #Peer does not own this keyspace. Find out who does.
     else:
         owns(key)
         return
@@ -132,9 +134,18 @@ def owns(peer, key):
         # We need to go deeper
         return owns(key, closest)
 
-def remove(key):
-    #TODO
-    pass
+def remove(conn, key):
+    #client sends protocol message for REMOVE request.
+    conn.sendall("REM".encode())
+    sendKey(conn, key)
+    response = recvStatus(conn)
+    
+    #Peer does not own this keyspace. Find out who does
+    if response == Result.N:
+        owns(conn, key)
+
+    #At this point ither the item was removed successfully or it wasn't
+    return True if response is Result.T else return False
 
 def pulse(conn):
     #Client sends protocol message for PULSE request.
@@ -152,35 +163,49 @@ def pulse(conn):
         print("Pulse response never returned. Killing function call.")
         p.terminate()
         p.join()
+        return False
     
-    return
+    return True
     
 def peer_exists(conn, key):
+    #Check to see if we own the specified key
     if owns(key, peers.get(key)) == peers.our_address:
         data = get_val(key)
+        
+        #Nothing exists at the specified key
         if data is None:
-            sendStatus(Result.F)
+            sendStatus(conn, Result.F)
             return False
+        
+        #Something does exist at the specified key
         else:
-            sendStatus(Result.T)
+            sendStatus(conn, Result.T)
             sendVal(conn, data)
             return True
+
+    #We don't own the specified key
     else:
-        sendStatus(Result.N)
+        sendStatus(conn, Result.N)
         return None
 
 def peer_get(conn, key):
+    #Check to see if we own the specified key
     if owns(key, peers.get(key)) == peers.our_address:
         data = get_val(key)
+
+        #Nothing exists at the specified key
         if data is None:
-            sendStatus(Result.F)
+            sendStatus(conn, Result.F)
             return
+
+        #Something does exist at the key so send it back
         else:
-            sendStatus(Result.T)
+            sendStatus(conn, Result.T)
             sendVal(conn, data)
             return
+    #We don't own the specified key
     else:
-        sendStatus(Result.N)
+        sendStatus(conn, Result.N)
         return
 
 def peer_insert(conn, key, value):
@@ -202,6 +227,24 @@ def peer_owns(conn, key):
     pass
 
 def peer_remove(conn, key):
+    #Check to see if we own the specified key
+    if owns(key, peers.get(key)) == peers.our_address:
+        data = get_val(key)
+
+        #Nothing exists at the specified key so it can't be removed
+        if data is None:
+            sendStatus(conn, Result.F)
+            return
+
+        #Something does exist at the key so remove it
+        else:
+            remove_val(key)
+            sendStatus(conn, Result.T)
+            return
+    #We don't own the specified key
+    else:
+        sendStatus(conn, Result.N)
+        return
     pass
 
 def peer_connect(conn):
@@ -230,6 +273,13 @@ def get_val(key):
             return f.read()
     else:
         return None
+
+
+"""
+Remove the value corresponding to key from local storage
+"""
+def remove_val(key):
+    os.remove(repo_path(key))
 
 
 """
