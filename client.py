@@ -96,7 +96,7 @@ def get(key):
 
 def insert(key, value):
     # Identify who to send to
-    owner = owns(peers.get(key).address, key)
+    owner = owns(key)
     conn = open_connection(owner.address) 
     
     # TODO
@@ -115,11 +115,14 @@ def insert(key, value):
         insert(key, value)
 
     
+def owns(key):
+    return owns(peers.get(key).address, key) 
 
 """
 Using peer as a starting point, find the owner
 """
 def owns(peer, key):
+    # TODO: Perhaps change this to be non-recursive
     # Check if peer owns the hash
     conn = open_connection(peer.address)
     conn.sendall("OWN".encode())    
@@ -127,7 +130,7 @@ def owns(peer, key):
 
     # Check if the closest reported is the same as the peer we're querying
     closest = get_addr_str(recvAddress(conn))
-    if closest is peer:
+    if closest is peer.address:
         # This is the owner of the file
         return peer.address
     else:
@@ -208,7 +211,22 @@ def peer_get(conn, key):
         sendStatus(conn, Result.N)
         return
 
-def peer_insert(conn, key, value):
+def peer_insert(conn, key):
+    # Determine if we own the key
+    if peers.get(key) == peers.our_address:
+        # We own the key
+        sendStatus(conn, Result.T)
+
+        # Receive and store the data
+        data = recvVal(conn)
+        insert_val(key, data)
+
+        # Confirm we received the data
+        sendStatus(conn, Result.T)
+    else:
+        # We do not own the key
+        sendStatus(conn, Result.N)
+    
     pass
 
 def peer_owns(conn, key):
@@ -313,7 +331,7 @@ def handle_connection(conn):
     elif request == "OWN":
         peer_owns(conn, recvKey(conn))
     elif request == "INS":
-        peer_insert(conn, recvValrecvKey(conn), recvVal(conn))
+        peer_insert(conn, recvKey(conn))
     elif request == "REM":
         peer_remove(conn, recvKey(conn))
     elif request == "CON":
