@@ -49,8 +49,30 @@ def connect(peer_addr):
 def disconnect():
     #TODO
     lock.acquire()
-    
+    conn = open_connection(peers.get_predecessor())
+    conn.sendall("DIS".encode()) 
+    sendAddress(conn, peers.our_address)
 
+    response = recvStatus(conn)
+    if response == Result.T:
+        succ1, succ2 = peers.get_successors()
+
+        sendAddress(conn, succ1.address)
+        sendAddress(conn, succ2.address)
+
+        keys = keys_local()
+        sendInt(conn, len(keys))
+
+        for key in keys:
+            sendKey(key)
+            sendVal(get_val(key))
+
+        if recvStatus(conn) == Result.T:
+            # Success!
+            return
+    elif response == Result.N:
+        pass
+    
     lock.release()
 
 #Start of "public" functions.
@@ -315,7 +337,28 @@ def peer_connect(conn):
         sendStatus(conn, Result.N)
 
 def peer_disconnect(conn):
-    pass
+    addr = getAddress(conn)
+    
+    # Check if they're our successor
+    succ, _ = peers.get_successors()
+
+    if addr is succ.address:
+        # We will take the keys
+        sendStatus(conn, Result.T)
+        
+        succ0 = Peer(*recvAddress(conn))
+        succ1 = Peer(*recvAddress(conn))
+        peers.set_successors(succ0, succ1)
+
+        num_items = recvInt(conn)
+        for i in range(num_items):
+            key = recvKey(conn)
+            val = recvVal(conn)
+            insert_val(key, val)
+
+        sendStatus(conn, Result.T)
+    else:
+        sendStatus(conn, Result.N)
 
 def pulse_response():
     response = recvStatus(conn);
