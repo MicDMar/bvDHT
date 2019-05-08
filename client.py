@@ -16,11 +16,13 @@ REPO_PATH = DEFAULT_REPO_PATH
 lock = threading.Lock
 peers = None
 
-"""
-Attempt to join the network through this peer
-"""
 def connect(peer_addr):
-    conn = open_connection(peer_addr)
+    """
+    Attempt to join the network through this peer
+    """
+    # Add peer to our finger table
+    peers.add_address(peer_addr)
+    
     # Find the hash right before ours
     closest_known = peers.get(peers.prev_hash())
     peer_addr = owns(peers.prev_hash(), closest_known)
@@ -30,8 +32,9 @@ def connect(peer_addr):
     sendAddress(conn, peer_addr)
     if recvBool(conn):
         # Proceed with connection
-        successor = Peer(*recvAddress(conn))
-        peers.set_successor(successor)
+        successor0 = Peer(*recvAddress(conn))
+        successor1 = Peer(*recvAddress(conn))
+        peers.set_successors(successor0, successor1)
         
         # Receive the items that now belong to us
         num_items = recvInt(conn)
@@ -46,6 +49,7 @@ def connect(peer_addr):
 def disconnect():
     #TODO
     lock.acquire()
+    
 
     lock.release()
 
@@ -112,10 +116,10 @@ def insert(key, value):
 
     
 
-"""
-Using peer as a starting point, find the owner
-"""
 def owns(key, peer=None):
+    """
+    Using peer as a starting point, find the owner
+    """
     if peer is None:
         return owns(key, peers.get(key).address) 
         
@@ -261,15 +265,54 @@ def peer_remove(conn, key):
         sendStatus(conn, Result.N)
         return
 
-"""
-Send diagnostic information to a peer
-"""
 def peer_info(conn):
+    """
+    Send diagnostic information to a peer
+    """
     res = "{}\n{}".format(peers, local_info())
     sendVal(conn, res.encode()) 
 
 def peer_connect(conn):
-    pass
+    # First, check if we own the keyspace required  
+    peer = Peer(*recvAddress(conn))
+    if peers.get(peer.hash) == peers.our_hash:
+        # They do belong to our keyspace
+        sendStatus(conn, Result.T)
+
+        # Alert client of their successors
+        succ1, succ2 = peers.get_successors()
+        sendAddress(succ1.address) 
+        sendAddress(succ2.address) 
+        
+        # Update our successor list
+        peers.set_successors(peer, succ1)
+
+        # Determine what items need to be sent over to client
+        def check_transfer_ownership(key):
+            """
+            Given a key within our keyspace, check if it is eligible to transfer to peer
+            Note: key MUST be within our keyspace. This will be broken otherwise
+            """
+            # TODO: Verify interval for key
+            if key <= peer.hash:
+                return True
+            if key < peers.our_hash:
+                return True
+            return False
+        keys = [k for k in keys_local() if check_transfer_ownership(int(k))] 
+
+        sendInt(conn, len(keys))
+        for key in keys:
+            sendVal(get_val(key))
+
+        # Receive confirmation that items were accepted
+        sendBool(conn, True)
+
+        # TODO: Give up control of the keys (delete)
+        for key in keys:
+            remove_val(key)
+    else:
+        sendStatus(conn, Result.N)
 
 def peer_disconnect(conn):
     pass
@@ -277,62 +320,62 @@ def peer_disconnect(conn):
 def pulse_response():
     response = recvStatus(conn);
 
-"""
-Add the value to our local storage
-"""
 def insert_val(key, val):
+    """
+    Add the value to our local storage
+    """
     with open(repo_path(key), "wb") as f:
         f.write(val)
 
 
-"""
-Get the value corresponding to key from local storage
-"""
 def get_val(key):
+    """
+    Get the value corresponding to key from local storage
+    """
     if exists_local(key):
         with open(repo_path(key)) as f:
             return f.read()
     else:
         return None
 
-"""
-Remove the value corresponding to key from local storage
-"""
 def remove_val(key):
+    """
+    Remove the value corresponding to key from local storage
+    """
     os.remove(repo_path(key))
 
 
-"""
-Check if the item exists locally
-(If we don't own the key space then it does not)
-"""
 def exists_local(key):
+    """
+    Check if the item exists locally
+    (If we don't own the key space then it does not)
+    """
     # TODO: Check if this is our key
     return os.path.isfile(repo_path(key))
 
-"""
-Get the path to the file corresponding to the key
-"""
 def repo_path(key=None):
+    """
+    Get the path to the file corresponding to the key
+    """
     if key:
         return os.path.join(REPO_PATH, key)
     else:
         return REPO_PATH
 
-"""
-Get a list of keys we are storing locally
-"""
 def keys_local():
+    """
+    Get a list of keys we are storing locally
+    """
     return os.listdir(repo_path())
 
-"""
-Build a string with information on the values stored here
-"""
 def local_info():
     """
-    Retrieve information relating to size of val
+    Build a string with information on the values stored here
     """
     def val_size(key):
+        """
+        Retrieve information relating to size of val
+        """
         return os.path.getsize(repo_path(key))
         
     s = ""

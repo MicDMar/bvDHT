@@ -23,14 +23,19 @@ class FingerTable:
             return max(options)
 
     def add(self, peer):
+        # FIXME: Enforce size limit, remove items if needed
         self.table.append(peer)
 
-    def set_successor(self, peer):
-        self.successor = peer
-        self.add(peer)
+    def add_address(self, peer_addr):
+        self.add(Peer(*get_addr_tupple(peer_addr)))
 
-    def get_successor(self):
-        return self.successor
+    def set_successors(self, peer1, peer2):
+        self.successors = [ peer1, peer2 ]
+        self.add(peer1)
+        self.add(peer2)
+
+    def get_successors(self):
+        return self.successors
 
     def set_predecessor(self, peer):
         self.predecessor = peer
