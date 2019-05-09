@@ -35,7 +35,7 @@ def connect(peer_addr):
 
     # Now that we have the predecessor
     conn.sendall("CON".encode())
-    sendAddress(conn, peer_addr)
+    sendAddress(conn, peers.us.address)
     if recvBool(conn):
         logging.debug("Peer will accept connection")
         # Proceed with connection
@@ -87,8 +87,9 @@ def disconnect():
         logging.debug("Sending {} keys".format(len(keys)))
 
         for key in keys:
-            sendKey(key)
-            sendVal(get_val(key))
+            key = int(key)
+            sendKey(conn, key)
+            sendVal(conn, get_val(key))
 
         # TODO: Timeout for if they aren't listening
         if recvStatus(conn) == Result.T:
@@ -409,7 +410,7 @@ def peer_connect(conn):
 
         sendInt(conn, len(keys))
         for key in keys:
-            sendVal(get_val(key))
+            sendVal(conn, get_val(key))
 
         # Receive confirmation that items were accepted
         sendBool(conn, True)
