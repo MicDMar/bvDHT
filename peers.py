@@ -22,7 +22,7 @@ class FingerTable:
             return self.us
         else:
             # Find the 'closest' owner of this hash
-            return max(options)
+            return max(options, key=lambda p: p.hash)
 
     def add(self, peer):
         # FIXME: Enforce size limit, remove items if needed
@@ -41,7 +41,7 @@ class FingerTable:
 
     def set_predecessor(self, peer):
         self.predecessor = peer
-        self.add(predecessor)
+        self.add(self.predecessor)
 
     def get_predecessor(self):
         return self.predecessor

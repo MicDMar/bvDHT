@@ -28,8 +28,10 @@ def connect(peer_addr):
     # Find the hash right before ours
     closest_known = peers.get(peers.prev_hash())
     peer_addr = owns(peers.prev_hash(), closest_known.address)
-    peers.set_predecessor(Peer(peer_addr))
+    peers.set_predecessor(Peer(*get_addr_tuple(peer_addr)))
     logging.debug("Predecessor found: {}".format(peer_addr))
+
+    conn = open_connection(peer_addr)
 
     # Now that we have the predecessor
     conn.sendall("CON".encode())
@@ -111,12 +113,12 @@ def exists(key):
     response = recvStatus(conn)
 
     #Peer does not own this keyspace. Find out who does.
-    if response is Result.N:
+    if response == Result.N:
         logging.debug("{} does not own the key {}".format(peer_addr, key))
         return exists(key)
 
     #At this point either the item exists or it doesn't.
-    if response is Result.T:
+    if response == Result.T:
         logging.debug("{} exists on peer {}".format(key, peer_addr))
         return True
     else:
@@ -131,14 +133,14 @@ def get(key):
     response = recvStatus(conn)
     
     #They responded with T so they will also send valSize and fileData.
-    if response is Result.T:
+    if response == Result.T:
         logging.debug("{} is sending {}".format(peer_addr, key))
-        #Download the item. It exists and is there.
+        #Download the item. It exists and == there.
         fileData = recvVal(conn)
         insert_val(hsh, fileData)
 
     #They responded with F meaning the peer owns the space but the items not there.
-    elif response is Result.F:
+    elif response == Result.F:
         logging.debug("{} does not exist.".format(key))
         return
     
@@ -152,21 +154,21 @@ def insert(key, value):
     logging.debug("Attempting to add {} to DHT".format(key))
     owner = owns(key)
     logging.debug("Owner of key is {}".format(owner)) 
-    conn = open_connection(owner.address) 
+    conn = open_connection(owner) 
     
     # TODO
     conn.sendall("INS".encode()) 
     result = recvStatus(conn)
 
-    if result is Result.T:
+    if result == Result.T:
         logging.debug("{} will accept {}".format(owner, key))
         # We're clear to send the data
         sendVal(conn, value)
-        if recvBool(conn) is False:
+        if recvBool(conn) == False:
             logging.debug("{} did not store the data")
             # We're not good, probably won't happen
             pass
-    elif result is Result.N:
+    elif result == Result.N:
         logging.debug("{} does not own the keyspace for {}".format(owner, key))
         # We need to find the actual owner, it changed 
         # TODO: Make sure this is okay
@@ -178,7 +180,7 @@ def owns(key, peer=None):
     """
     Using peer as a starting point, find the owner
     """
-    if peer is None:
+    if peer == None:
         logging.debug("Attempting to find owner of {}".format(key))
         return owns(key, peers.get(key).address) 
     
@@ -190,10 +192,10 @@ def owns(key, peer=None):
     conn.sendall("OWN".encode())    
     sendKey(conn, key)
 
-    # Check if the closest reported is the same as the peer we're querying
+    # Check if the closest reported == the same as the peer we're querying
     closest = get_addr_str(recvAddress(conn))
     logging.debug("{} reported closest peer as {}".format(peer, closest))
-    if closest is peer:
+    if closest == peer:
         logging.debug("{} is the owner of {}".format(peer, key))
         # This is the owner of the file
         return peer
@@ -212,7 +214,7 @@ def remove(conn, key):
         owns(key, conn)
 
     #At this point ither the item was removed successfully or it wasn't
-    if response is Result.T:
+    if response == Result.T:
         return True
     else:
         return False
@@ -246,7 +248,7 @@ def peer_exists(conn, key):
         data = get_val(key)
         
         #Nothing exists at the specified key
-        if data is None:
+        if data == None:
             sendStatus(conn, Result.F)
             return False
         
@@ -267,7 +269,7 @@ def peer_get(conn, key):
         data = get_val(key)
 
         #Nothing exists at the specified key
-        if data is None:
+        if data == None:
             sendStatus(conn, Result.F)
             return
 
@@ -283,7 +285,7 @@ def peer_get(conn, key):
 
 def peer_insert(conn, key):
     # Determine if we own the key
-    if peers.get(key) == peers.our_address:
+    if peers.get(key) == peers.us.address:
         # We own the key
         sendStatus(conn, Result.T)
 
@@ -317,7 +319,7 @@ def peer_remove(conn, key):
         data = get_val(key)
 
         #Nothing exists at the specified key so it can't be removed
-        if data is None:
+        if data == None:
             sendStatus(conn, Result.F)
             return
 
@@ -359,7 +361,7 @@ def peer_connect(conn):
         # Determine what items need to be sent over to client
         def check_transfer_ownership(key):
             """
-            Given a key within our keyspace, check if it is eligible to transfer to peer
+            Given a key within our keyspace, check if it == eligible to transfer to peer
             Note: key MUST be within our keyspace. This will be broken otherwise
             """
             # TODO: Verify interval for key
@@ -389,7 +391,7 @@ def peer_disconnect(conn):
     # Check if they're our successor
     succ, _ = peers.get_successors()
 
-    if addr is succ.address:
+    if addr == succ.address:
         # We will take the keys
         sendStatus(conn, Result.T)
         
@@ -442,7 +444,7 @@ def exists_local(key):
     Check if the item exists locally
     (If we don't own the key space then it does not)
     """
-    # TODO: Check if this is our key
+    # TODO: Check if this == our key
     return os.path.isfile(repo_path(key))
 
 def repo_path(key=None):
@@ -514,22 +516,22 @@ def handle_cli():
         
     while True:
         print_commands()
-        command = input("What would you like to do?")
+        command = input("What would you like to do? ")
         
         if command == "insert":
-            name = input("Enter the name of the data: ")
+            name = get_hash(input("Enter the name of the data: "))
             val = input("Enter the data: ")
             insert(name, val)
         elif command == "remove":
-            name = input("Enter the name of the data: ")
+            name = get_hash(input("Enter the name of the data: "))
             remove(name)
         elif command == "get":
-            name = input("Enter the name of the data: ")
+            name = get_hash(input("Enter the name of the data: "))
             get(name)
             pass
         elif command == "exists":
-            name = input("Enter the name of the data: ")
-            if exists(key):
+            name = get_hash(input("Enter the name of the data: "))
+            if exists(name):
                 print("{} exists!".format(name))
             else:
                 print("{} does not exist.".format(name))
