@@ -14,7 +14,7 @@ DEFAULT_PORT = 3000
 DEFAULT_REPO_PATH = "DHT_files"
 
 REPO_PATH = DEFAULT_REPO_PATH
-lock = threading.Lock
+lock = threading.Lock()
 peers = None
 
 def connect(peer_addr):
@@ -69,9 +69,9 @@ def disconnect():
     # TODO: Wrap this in a loop up until we get to leave
     pred = peers.get_predecessor()
     logging.debug("Disconnecting through {}".format(pred.address))
-    conn = open_connection(pred)
+    conn = open_connection(pred.address)
     conn.sendall("DIS".encode()) 
-    sendAddress(conn, peers.our_address)
+    sendAddress(conn, peers.us.address)
 
     response = recvStatus(conn)
     if response == Result.T:
@@ -128,6 +128,9 @@ def get(key):
     #Client sends protocol message for GET request.
     logging.debug("Attempting to get {}".format(key))
     peer_addr = owns(key)
+
+    conn = open_connection(peer_addr)
+
     conn.sendall("GET".encode())
     sendKey(conn, key)
     response = recvStatus(conn)
@@ -137,7 +140,8 @@ def get(key):
         logging.debug("{} is sending {}".format(peer_addr, key))
         #Download the item. It exists and == there.
         fileData = recvVal(conn)
-        insert_val(hsh, fileData)
+        print("-------------{}------------".format(fileData))
+        #insert_val(hsh, fileData)
 
     #They responded with F meaning the peer owns the space but the items not there.
     elif response == Result.F:
@@ -204,8 +208,11 @@ def owns(key, peer=None):
         # We need to go deeper
         return owns(key, closest)
 
-def remove(conn, key):
+def remove(key):
     #client sends protocol message for REMOVE request.
+
+    conn = open_connection(owns(key))
+
     conn.sendall("REM".encode())
     sendKey(conn, key)
     response = recvStatus(conn)
@@ -274,7 +281,7 @@ def peer_get(conn, key):
     logging.debug("Attempting to get {}".format(key))
 
     #Check to see if we own the specified key
-    if owns(key, peers.get(key).address) == peers.our_address:
+    if owns(key, peers.get(key).address) == peers.us.address:
         data = get_val(key)
 
         #Nothing exists at the specified key
@@ -299,7 +306,7 @@ def peer_insert(conn, key):
     logging.debug("Attempting to insert {}".format(key))
 
     # Determine if we own the key
-    if peers.get(key) == peers.us.address:
+    if peers.get(key).address == peers.us.address:
         # We own the key
         sendStatus(conn, Result.T)
 
@@ -413,7 +420,7 @@ def peer_connect(conn):
         sendStatus(conn, Result.N)
 
 def peer_disconnect(conn):
-    addr = getAddress(conn)
+    addr = recvAddress(conn)
     logging.debug("{} wants to disconnect. shameful display".format(addr))
     
     # Check if they're our successor
@@ -486,7 +493,7 @@ def repo_path(key=None):
     Get the path to the file corresponding to the key
     """
     if key:
-        return os.path.join(REPO_PATH, key)
+        return os.path.join(REPO_PATH, str(key))
     else:
         return REPO_PATH
 
@@ -554,7 +561,7 @@ def handle_cli():
         
         if command == "insert":
             name = get_hash(input("Enter the name of the data: "))
-            val = input("Enter the data: ")
+            val = input("Enter the data: ").encode()
             insert(name, val)
         elif command == "remove":
             name = get_hash(input("Enter the name of the data: "))
