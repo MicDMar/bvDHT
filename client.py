@@ -27,7 +27,7 @@ def connect(peer_addr):
     
     # Find the hash right before ours
     closest_known = peers.get(peers.prev_hash())
-    peer_addr = owns(peers.prev_hash(), closest_known)
+    peer_addr = owns(peers.prev_hash(), closest_known.address)
     peers.set_predecessor(Peer(peer_addr))
     logging.debug("Predecessor found: {}".format(peer_addr))
 
@@ -242,7 +242,7 @@ def pulse(peer_addr):
     
 def peer_exists(conn, key):
     #Check to see if we own the specified key
-    if owns(key, peers.get(key)) == peers.our_address:
+    if owns(key, peers.get(key).address) == peers.our_address:
         data = get_val(key)
         
         #Nothing exists at the specified key
@@ -263,7 +263,7 @@ def peer_exists(conn, key):
 
 def peer_get(conn, key):
     #Check to see if we own the specified key
-    if owns(key, peers.get(key)) == peers.our_address:
+    if owns(key, peers.get(key).address) == peers.our_address:
         data = get_val(key)
 
         #Nothing exists at the specified key
@@ -313,7 +313,7 @@ def peer_owns(conn, key):
 
 def peer_remove(conn, key):
     #Check to see if we own the specified key
-    if owns(key, peers.get(key)) == peers.our_address:
+    if owns(key, peers.get(key).address) == peers.our_address:
         data = get_val(key)
 
         #Nothing exists at the specified key so it can't be removed
