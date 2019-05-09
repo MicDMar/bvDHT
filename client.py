@@ -211,12 +211,15 @@ def remove(conn, key):
     
     #Peer does not own this keyspace. Find out who does
     if response == Result.N:
+        logging.debug("Peer does not own {}".format(key))
         owns(key, conn)
 
-    #At this point ither the item was removed successfully or it wasn't
+    #At this point either the item was removed successfully or it wasn't
     if response == Result.T:
+        logging.debug("Successfully removed {}".format())
         return True
     else:
+        logging.debug("Couldn't remove {}".format())
         return False
 
 def pulse(peer_addr):
