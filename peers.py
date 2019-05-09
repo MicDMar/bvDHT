@@ -12,15 +12,14 @@ class Peer:
 
 class FingerTable:
     def __init__(self, our_address, size=5):
-        self.our_address = our_address
+        self.us = Peer(our_address, get_hash(our_address))
         self.size = size
         self.table = []
-        self.hash = get_hash(our_address)
 
     def get(self, hsh):
         options = [x for x in self.table if x.hash < hsh]
         if len(options) == 0:
-            return self.our_address
+            return self.us
         else:
             # Find the 'closest' owner of this hash
             return max(options)
@@ -51,7 +50,7 @@ class FingerTable:
         self.table = [x for x in self.table if x.address != peer_addr]
 
     def our_hash(self):
-        return self.hash
+        return self.us.hash
 
     """
     Get the hash directly before ours
@@ -67,5 +66,5 @@ class FingerTable:
         s = ""
         for peer in self.table:
             s += "  {},\n".format(peer)
-        return "<FingerTable({}): [\n{}]>".format(self.our_address, s[:])
+        return "<FingerTable({}): [\n{}]>".format(self.us.address, s[:])
 
