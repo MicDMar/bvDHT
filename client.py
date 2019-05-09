@@ -244,22 +244,25 @@ def pulse(peer_addr):
     
 def peer_exists(conn, key):
     #Check to see if we own the specified key
+    logging.debug("Peer asking if {} exists".format(key))
     if owns(key, peers.get(key).address) == peers.our_address:
+        logging.debug("We own {}".format(key))
         data = get_val(key)
         
-        #Nothing exists at the specified key
-        if data == None:
+        if key in keys_local():
+            #Something does exist at the specified key
+            logging.debug("{} is in our repo".format(key))
+            sendStatus(conn, Result.T)
+            return True
+        else:
+            #Nothing exists at the specified key
+            logging.debug("{} is not in our repo".format(key))
             sendStatus(conn, Result.F)
             return False
-        
-        #Something does exist at the specified key
-        else:
-            sendStatus(conn, Result.T)
-            sendVal(conn, data)
-            return True
 
     #We don't own the specified key
     else:
+        logging.debug("We don't own {}".format(key))
         sendStatus(conn, Result.N)
         return None
 
@@ -301,17 +304,23 @@ def peer_insert(conn, key):
 
 def peer_owns(conn, key):
     # Find the closest peer
+    logging.debug("Peer wants to know who owns {}".format(key))
     closest = peers.get(key)
         
     # Pulse peer
+    logging.debug("About to pulse {} if not us".format(closest))
     if closest.address == peers.us.address or pulse(closest.address):
+        logging.debug("Closest known is alive and well, or us")
         # Tell peer they're good
         sendAddress(conn, closest.address)
     else:
-       # Remove cloest from peer list 
-       peers.remove(closest.address)
-       # TODO: Verify this can't cause any problems if the new peer is dead
-       sendAddress(conn, peers.get(key).address)
+        logging.debug("Peer didn't respond to pulse. Removing from table")
+        # Remove cloest from peer list 
+        peers.remove(closest.address)
+        # TODO: Verify this can't cause any problems if the new peer is dead
+        closest = peers.get(key).address
+        logging.debug("Next closest is {}".format(closest))
+        sendAddress(conn, closest)
 
 def peer_remove(conn, key):
     #Check to see if we own the specified key
