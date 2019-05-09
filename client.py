@@ -378,15 +378,15 @@ def peer_connect(conn):
     # First, check if we own the keyspace required  
     peer = Peer(*recvAddress(conn))
     logging.debug("{} is attempting to join DHT".format(peer.address))
-    if peers.get(peer.hash) == peers.our_hash:
+    if peers.get(peer.hash).hash == peers.us.hash:
         logging.debug("We own the keyspace. Allowing peer to join")
         # They do belong to our keyspace
         sendStatus(conn, Result.T)
 
         # Alert client of their successors
         succ1, succ2 = peers.get_successors()
-        sendAddress(succ1.address) 
-        sendAddress(succ2.address) 
+        sendAddress(conn, succ1.address) 
+        sendAddress(conn, succ2.address) 
         
         # Update our successor list
         peers.set_successors(peer, succ1)
@@ -420,7 +420,7 @@ def peer_connect(conn):
         sendStatus(conn, Result.N)
 
 def peer_disconnect(conn):
-    addr = recvAddress(conn)
+    addr = get_addr_str(recvAddress(conn))
     logging.debug("{} wants to disconnect. shameful display".format(addr))
     
     # Check if they're our successor
