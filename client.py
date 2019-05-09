@@ -21,58 +21,77 @@ def connect(peer_addr):
     """
     Attempt to join the network through this peer
     """
+    logging.debug("Attempting to join DHT through {}".format(peer_addr))
     # Add peer to our finger table
     peers.add_address(peer_addr)
     
     # Find the hash right before ours
     closest_known = peers.get(peers.prev_hash())
     peer_addr = owns(peers.prev_hash(), closest_known)
+    peers.set_predecessor(Peer(peer_addr))
+    logging.debug("Predecessor found: {}".format(peer_addr))
 
     # Now that we have the predecessor
     conn.sendall("CON".encode())
     sendAddress(conn, peer_addr)
     if recvBool(conn):
+        logging.debug("Peer will accept connection")
         # Proceed with connection
         successor0 = Peer(*recvAddress(conn))
         successor1 = Peer(*recvAddress(conn))
         peers.set_successors(successor0, successor1)
+        logging.debug("Successor: {}".format(successor0.address))
+        logging.debug("Successor's successor: {}".format(successor1.address))
         
         # Receive the items that now belong to us
         num_items = recvInt(conn)
+        logging.debug("About to receive {} items".format(num_items))
         for i in range(num_items):
             key = recvKey(conn)
             val = recvVal(conn)
+            logging.debug("Received {}: len({})".format(key, len(val)))
             insert_val(key, val)
+
+        logging.debug("Successfully joined DHT")
         sendBool(conn, True)
     else:
+        logging.debug("Peer refused connection to DHT")
         return False
 
 def disconnect():
     #TODO
+    logging.debug("Attemtping to acquire lock for disconnect")
     lock.acquire()
-    conn = open_connection(peers.get_predecessor())
+    pred = peers.get_predecessor()
+    logging.debug("Disconnecting through {}".format(pred.address))
+    conn = open_connection(pred)
     conn.sendall("DIS".encode()) 
     sendAddress(conn, peers.our_address)
 
     response = recvStatus(conn)
     if response == Result.T:
+        logging.debug("Predecessor will accept disconnect")
         succ1, succ2 = peers.get_successors()
 
         sendAddress(conn, succ1.address)
         sendAddress(conn, succ2.address)
+        logging.debug("Sent successors: \n{}\n{}".format(succ1, succ2))
 
         keys = keys_local()
         sendInt(conn, len(keys))
+        logging.debug("Sending {} keys".format(len(keys)))
 
         for key in keys:
             sendKey(key)
             sendVal(get_val(key))
 
+        # TODO: Timeout for if they aren't listening
         if recvStatus(conn) == Result.T:
+            logging.debug("Successfully disconnected")
             # Success!
             return
     elif response == Result.N:
-        pass
+        logging.debug("{} will not accept disconnect".format(pred.address))
     
     lock.release()
 
@@ -119,7 +138,9 @@ def get(key):
 
 def insert(key, value):
     # Identify who to send to
+    logging.debug("Attempting to add {} to DHT".format(key))
     owner = owns(key)
+    logging.debug("Owner of key is {}".format(owner)) 
     conn = open_connection(owner.address) 
     
     # TODO
@@ -127,12 +148,15 @@ def insert(key, value):
     result = recvStatus(conn)
 
     if result is Result.T:
+        logging.debug("{} will accept {}".format(owner, key))
         # We're clear to send the data
         sendVal(conn, value)
         if recvBool(conn) is False:
+            logging.debug("{} did not store the data")
             # We're not good, probably won't happen
             pass
     elif result is Result.N:
+        logging.debug("{} does not own the keyspace for {}".format(owner, key))
         # We need to find the actual owner, it changed 
         # TODO: Make sure this is okay
         insert(key, value)
@@ -144,7 +168,10 @@ def owns(key, peer=None):
     Using peer as a starting point, find the owner
     """
     if peer is None:
+        logging.debug("Attempting to find owner of {}".format(key))
         return owns(key, peers.get(key).address) 
+    
+    logging.debug("Checking owner of {} through {}".format(key, peer))
         
     # TODO: Perhaps change this to be non-recursive
     # Check if peer owns the hash
@@ -154,7 +181,9 @@ def owns(key, peer=None):
 
     # Check if the closest reported is the same as the peer we're querying
     closest = get_addr_str(recvAddress(conn))
+    logging.debug("{} reported closest peer as {}".format(peer, closest))
     if closest is peer.address:
+        logging.debug("{} is the owner of {}".format(peer, key))
         # This is the owner of the file
         return peer.address
     else:
@@ -298,7 +327,9 @@ def peer_info(conn):
 def peer_connect(conn):
     # First, check if we own the keyspace required  
     peer = Peer(*recvAddress(conn))
+    logging.debug("{} is attempting to join DHT".format(peer.address))
     if peers.get(peer.hash) == peers.our_hash:
+        logging.debug("We own the keyspace. Allowing peer to join")
         # They do belong to our keyspace
         sendStatus(conn, Result.T)
 
@@ -309,6 +340,7 @@ def peer_connect(conn):
         
         # Update our successor list
         peers.set_successors(peer, succ1)
+        logging.debug("New successors:\n{}\n{}".format(succ1, succ2))
 
         # Determine what items need to be sent over to client
         def check_transfer_ownership(key):
@@ -317,10 +349,10 @@ def peer_connect(conn):
             Note: key MUST be within our keyspace. This will be broken otherwise
             """
             # TODO: Verify interval for key
-            if key <= peer.hash:
+            if key <= peer.hash or key < peers.our_hash:
+                logging.debug("{} will be transfered".format(key))
                 return True
-            if key < peers.our_hash:
-                return True
+            logging.debug("{} will NOT be transfered".format(key))
             return False
         keys = [k for k in keys_local() if check_transfer_ownership(int(k))] 
 
@@ -368,6 +400,7 @@ def insert_val(key, val):
     """
     Add the value to our local storage
     """
+    logging.debug("Adding key: {}. {} bytes".format(key, len(val)))
     with open(repo_path(key), "wb") as f:
         f.write(val)
 
@@ -386,6 +419,7 @@ def remove_val(key):
     """
     Remove the value corresponding to key from local storage
     """
+    logging.debug("Removing key: {}".format(key))
     os.remove(repo_path(key))
 
 
@@ -497,7 +531,7 @@ if __name__ == "__main__":
     listener.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1) # Allow address to be reused
     listener.bind((local_ip, port))
     listener.listen()
-    print("Server is listening on {}:{}".format(local_ip, port))
+    logging.info("Server is listening on {}:{}".format(local_ip, port))
 
     while True:
         threading.Thread(target=handle_connection, args=(listener.accept(),), daemon=True).start()
