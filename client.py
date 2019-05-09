@@ -7,6 +7,7 @@ import os
 import sys
 import threading
 import time
+import logging
 
 from peers import *
 DEFAULT_PORT = 3000
@@ -108,7 +109,7 @@ def get(key):
 
     #They responded with F meaning the peer owns the space but the items not there.
     elif response is Result.F:
-        print("Item no longer exists.")
+        logging.debug("Item no longer exists.")
         return
     
     #Peer does not own this keyspace. Find out who does.
@@ -189,7 +190,7 @@ def pulse(conn):
     #If the peer hasn't sent us a pulse response within the allotted time
     #kill the function; peer is dead.
     if p.is_alive():
-        print("Pulse response never returned. Killing function call.")
+        logging.debug("Pulse response never returned. Killing function call.")
         p.terminate()
         p.join()
         return False
@@ -429,19 +430,12 @@ def local_info():
     ]""".format(s)
     
 
-def debug():
-    peer = Peer("10.92.16.58", 3000)
-    print(peers.get(70))
-    peers.add(peer)
-    print(peers.get(math.inf))
-    pass
-
 def handle_connection(conn_info):
     conn, clientAddr = conn_info
-    print("Received connection from {}".format(clientAddr))
+    logging.debug("Received connection from {}".format(clientAddr))
     
     request = recvAll(conn, 3).decode()
-    print("{} from {}".format(request, clientAddr))
+    logging.debug("{} from {}".format(request, clientAddr))
     if request == "GET":
         peer_get(conn, recvKey(conn))
     elif request == "EXI":
@@ -463,7 +457,7 @@ def handle_connection(conn_info):
     else:
         return
     
-    print("Closing connection to {}".format(clientAddr))
+    logging.debug("Closing connection to {}".format(clientAddr))
     conn.close()
 
 if __name__ == "__main__":
@@ -479,16 +473,24 @@ if __name__ == "__main__":
     REPO_PATH = os.environ.get('REPOSITORY', DEFAULT_REPO_PATH)
 
     local_ip = getLocalIPAddress()
+    local_addr = "{}:{}".format(local_ip, port)
     peers = FingerTable("{}:{}".format(local_ip, port))
+    
+    # Configure logging
+    logging.basicConfig(format='%(asctime)s({}): %(message)s'.format(local_addr), \
+            level=logging.DEBUG)
 
-    debug()
-    print(peers)
+    logging.debug(peers)
 
     # Determine if we're the first person on the DHT
     # If so, call connect on the peer
     if address:
         # Connect to DHT
         connect(address)
+
+    # TODO: Populate fingertable with peers from the circle 
+
+    # TODO: Launch a thread to manage fingertable
 
     # Setup the TCP socket
     listener = socket(AF_INET, SOCK_STREAM)
