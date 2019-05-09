@@ -264,12 +264,15 @@ def peer_exists(conn, key):
         return None
 
 def peer_get(conn, key):
+    logging.debug("Attempting to get {}".format(key))
+
     #Check to see if we own the specified key
     if owns(key, peers.get(key).address) == peers.our_address:
         data = get_val(key)
 
         #Nothing exists at the specified key
         if data == None:
+            logging.debug("Nothing to get at {}".format(key))
             sendStatus(conn, Result.F)
             return
 
@@ -277,13 +280,17 @@ def peer_get(conn, key):
         else:
             sendStatus(conn, Result.T)
             sendVal(conn, data)
+            logging.debug("Sucessfully got {}".format(key))
             return
     #We don't own the specified key
     else:
+        logging.debug("Peer does not own {}".format(key))
         sendStatus(conn, Result.N)
         return
 
 def peer_insert(conn, key):
+    logging.debug("Attempting to insert {}".format(key))
+
     # Determine if we own the key
     if peers.get(key) == peers.us.address:
         # We own the key
@@ -295,7 +302,9 @@ def peer_insert(conn, key):
 
         # Confirm we received the data
         sendStatus(conn, Result.T)
+        logging.debug("Successfully inserted {}".format(key))
     else:
+        logging.debug("Failed to insert {}".format(key))
         # We do not own the key
         sendStatus(conn, Result.N)
 
@@ -314,12 +323,15 @@ def peer_owns(conn, key):
        sendAddress(conn, peers.get(key).address)
 
 def peer_remove(conn, key):
+    logging.debug("Attempting to remove {}".format(key))
+
     #Check to see if we own the specified key
     if owns(key, peers.get(key).address) == peers.our_address:
         data = get_val(key)
 
         #Nothing exists at the specified key so it can't be removed
         if data == None:
+            logging.debug("Nothing to remove at {}".format(key))
             sendStatus(conn, Result.F)
             return
 
@@ -327,9 +339,11 @@ def peer_remove(conn, key):
         else:
             remove_val(key)
             sendStatus(conn, Result.T)
+            logging.debug("Successfully removed {}".format(key))
             return
     #We don't own the specified key
     else:
+        logging.debug("Peer does not own {}".format(key))
         sendStatus(conn, Result.N)
         return
 
