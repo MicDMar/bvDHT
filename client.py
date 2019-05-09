@@ -186,7 +186,7 @@ def owns(key, peer=None):
         
     # TODO: Perhaps change this to be non-recursive
     # Check if peer owns the hash
-    conn = open_connection(peer)
+    conn = open_connection(peer.address)
     conn.sendall("OWN".encode())    
     sendKey(conn, key)
 
