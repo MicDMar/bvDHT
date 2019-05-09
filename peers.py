@@ -14,7 +14,7 @@ class FingerTable:
     def __init__(self, our_address, size=5):
         self.us = Peer(our_address, get_hash(our_address))
         self.size = size
-        self.table = []
+        self.table = [self.us]
 
     def get(self, hsh):
         options = [x for x in self.table if x.hash < hsh]

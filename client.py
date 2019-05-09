@@ -158,6 +158,7 @@ def insert(key, value):
     
     # TODO
     conn.sendall("INS".encode()) 
+    sendKey(conn, key)
     result = recvStatus(conn)
 
     if result == Result.T:
@@ -592,7 +593,7 @@ if __name__ == "__main__":
     peers = FingerTable("{}:{}".format(local_ip, port))
     
     # Configure logging
-    logging.basicConfig(format='%(levelname)s %(asctime)s({}): %(message)s [%(thread)s]'.format(local_addr), \
+    logging.basicConfig(format='%(levelname)s %(asctime)s({}): %(message)s [%(thread)s] %(lineno)d'.format(local_addr), \
             level=logging.DEBUG)
 
     logging.debug(peers)
