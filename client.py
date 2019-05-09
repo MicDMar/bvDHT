@@ -505,6 +505,38 @@ def handle_connection(conn_info):
     logging.debug("Closing connection to {}".format(clientAddr))
     conn.close()
 
+def handle_cli():
+    def print_commands():
+        print("Options are: insert,remove,get,exists,disconnect,help")
+        
+    while True:
+        print_commands()
+        command = input("What would you like to do?")
+        
+        if command == "insert":
+            name = input("Enter the name of the data: ")
+            val = input("Enter the data: ")
+            insert(name, val)
+        elif command == "remove":
+            name = input("Enter the name of the data: ")
+            remove(name)
+        elif command == "get":
+            name = input("Enter the name of the data: ")
+            get(name)
+            pass
+        elif command == "exists":
+            name = input("Enter the name of the data: ")
+            if exists(key):
+                print("{} exists!".format(name))
+            else:
+                print("{} does not exist.".format(name))
+        elif command == "disconnect":
+            disconnect()
+            pass
+        elif command == "help":
+            print_commands()
+            pass
+        
 if __name__ == "__main__":
     # The address of the first peer to connect to
     address = None
@@ -543,6 +575,8 @@ if __name__ == "__main__":
     listener.bind((local_ip, port))
     listener.listen()
     logging.info("Server is listening on {}:{}".format(local_ip, port))
+
+    threading.Thread(target=handle_cli).start()
 
     while True:
         try:
