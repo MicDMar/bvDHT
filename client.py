@@ -186,7 +186,7 @@ def owns(key, peer=None):
         
     # TODO: Perhaps change this to be non-recursive
     # Check if peer owns the hash
-    conn = open_connection(peer.address)
+    conn = open_connection(peer)
     conn.sendall("OWN".encode())    
     sendKey(conn, key)
 
@@ -217,10 +217,13 @@ def remove(conn, key):
     else:
         return False
 
-def pulse(conn):
+def pulse(peer_addr):
+    logging.debug("Attempting to pulse {}".format(peer_addr))
+    conn = open_connection(peer_addr)
     #Client sends protocol message for PULSE request.
     conn.sendall("PUL".encode())
 
+    logging.debug("Spawning process for pulse")
     #Start up another process that waits 5 seconds for a response.
     p = multiprocessing.Process(target=pulse_response, args=(conn,))
     p.start()
@@ -297,9 +300,9 @@ def peer_insert(conn, key):
 def peer_owns(conn, key):
     # Find the closest peer
     closest = peers.get(key)
+        
     # Pulse peer
-    conn = open_connection(closest.address)
-    if closest.address == peers.us.address or pulse(conn):
+    if closest.address == peers.us.address or pulse(closest.address):
         # Tell peer they're good
         sendAddress(conn, closest.address)
     else:
