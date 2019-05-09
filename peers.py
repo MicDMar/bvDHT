@@ -57,6 +57,9 @@ class FingerTable:
     def prev_hash(self):
         return (self.our_hash() - 1) % hash_size()
 
+    def empty(self):
+        return len(self.table) is 0
+
     def __repr__(self):
         s = ""
         for peer in self.table:

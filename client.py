@@ -59,9 +59,12 @@ def connect(peer_addr):
         return False
 
 def disconnect():
-    #TODO
+    if peers.empty():
+        # We're the only one on the network, just leave
+        return
     logging.debug("Attemtping to acquire lock for disconnect")
     lock.acquire()
+    # TODO: Wrap this in a loop up until we get to leave
     pred = peers.get_predecessor()
     logging.debug("Disconnecting through {}".format(pred.address))
     conn = open_connection(pred)
@@ -99,36 +102,44 @@ def disconnect():
 
 def exists(key):
     #Client sends protocol message for EXISTS request.
+    logging.debug("Attempting to see if {} exists".format(key))
+    peer_addr = owns(key)
+    conn = open_connection(peer_addr)
+    
     conn.sendall("EXI".encode())
     sendKey(key)
     response = recvStatus(conn)
 
     #Peer does not own this keyspace. Find out who does.
     if response is Result.N:
-        owns(key)
+        logging.debug("{} does not own the key {}".format(peer_addr, key))
         return exists(key)
 
     #At this point either the item exists or it doesn't.
     if response is Result.T:
+        logging.debug("{} exists on peer {}".format(key, peer_addr))
         return True
     else:
         return False
     
 def get(key):
     #Client sends protocol message for GET request.
+    logging.debug("Attempting to get {}".format(key))
+    peer_addr = owns(key)
     conn.sendall("GET".encode())
     sendKey(conn, key)
     response = recvStatus(conn)
     
     #They responded with T so they will also send valSize and fileData.
     if response is Result.T:
+        logging.debug("{} is sending {}".format(peer_addr, key))
         #Download the item. It exists and is there.
         fileData = recvVal(conn)
         insert_val(hsh, fileData)
 
     #They responded with F meaning the peer owns the space but the items not there.
     elif response is Result.F:
-        logging.debug("Item no longer exists.")
+        logging.debug("{} does not exist.".format(key))
         return
     
     #Peer does not own this keyspace. Find out who does.
@@ -410,7 +421,7 @@ def get_val(key):
     Get the value corresponding to key from local storage
     """
     if exists_local(key):
-        with open(repo_path(key)) as f:
+        with open(repo_path(key), "rb") as f:
             return f.read()
     else:
         return None
@@ -511,7 +522,7 @@ if __name__ == "__main__":
     peers = FingerTable("{}:{}".format(local_ip, port))
     
     # Configure logging
-    logging.basicConfig(format='%(asctime)s({}): %(message)s'.format(local_addr), \
+    logging.basicConfig(format='%(levelname)s %(asctime)s({}): %(message)s [%(thread)s]'.format(local_addr), \
             level=logging.DEBUG)
 
     logging.debug(peers)
@@ -534,5 +545,11 @@ if __name__ == "__main__":
     logging.info("Server is listening on {}:{}".format(local_ip, port))
 
     while True:
-        threading.Thread(target=handle_connection, args=(listener.accept(),), daemon=True).start()
+        try:
+            threading.Thread(target=handle_connection, args=(listener.accept(),), daemon=True).start()
+        except KeyboardInterrupt:
+            logging.info("Exit requested. Disconnecting.")
+            disconnect()
+            logging.info("Goodbye")
+            break
 
