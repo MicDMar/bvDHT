@@ -186,17 +186,17 @@ def owns(key, peer=None):
         
     # TODO: Perhaps change this to be non-recursive
     # Check if peer owns the hash
-    conn = open_connection(peer.address)
+    conn = open_connection(peer)
     conn.sendall("OWN".encode())    
     sendKey(conn, key)
 
     # Check if the closest reported is the same as the peer we're querying
     closest = get_addr_str(recvAddress(conn))
     logging.debug("{} reported closest peer as {}".format(peer, closest))
-    if closest is peer.address:
+    if closest is peer:
         logging.debug("{} is the owner of {}".format(peer, key))
         # This is the owner of the file
-        return peer.address
+        return peer
     else:
         # We need to go deeper
         return owns(key, closest)

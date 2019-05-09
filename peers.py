@@ -1,5 +1,7 @@
 from hash_functions import get_hash, hash_size
 
+from net_functions import *
+
 class Peer:
     def __init__(self, address, port):
         self.address = "{}:{}".format(address, port)
@@ -13,6 +15,7 @@ class FingerTable:
         self.our_address = our_address
         self.size = size
         self.table = []
+        self.hash = get_hash(our_address)
 
     def get(self, hsh):
         options = [x for x in self.table if x.hash < hsh]
@@ -27,7 +30,7 @@ class FingerTable:
         self.table.append(peer)
 
     def add_address(self, peer_addr):
-        self.add(Peer(*get_addr_tupple(peer_addr)))
+        self.add(Peer(*get_addr_tuple(peer_addr)))
 
     def set_successors(self, peer1, peer2):
         self.successors = [ peer1, peer2 ]
