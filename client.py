@@ -390,6 +390,7 @@ def peer_connect(conn):
         
         # Update our successor list
         peers.set_successors(peer, succ1)
+        succ1, succ2 = peers.get_successors()
         logging.debug("New successors:\n{}\n{}".format(succ1, succ2))
 
         # Determine what items need to be sent over to client
@@ -399,7 +400,7 @@ def peer_connect(conn):
             Note: key MUST be within our keyspace. This will be broken otherwise
             """
             # TODO: Verify interval for key
-            if key <= peer.hash or key < peers.our_hash:
+            if key <= peer.hash or key < peers.us.hash:
                 logging.debug("{} will be transfered".format(key))
                 return True
             logging.debug("{} will NOT be transfered".format(key))
@@ -426,6 +427,7 @@ def peer_disconnect(conn):
     # Check if they're our successor
     succ, _ = peers.get_successors()
 
+    logging.debug("Our successor is {}".format(succ))
     if addr == succ.address:
         logging.debug("{} IS our successor. Allowing disconnect".format(addr))
         # We will take the keys
