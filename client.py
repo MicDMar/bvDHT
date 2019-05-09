@@ -378,18 +378,19 @@ def peer_connect(conn):
     # First, check if we own the keyspace required  
     peer = Peer(*recvAddress(conn))
     logging.debug("{} is attempting to join DHT".format(peer.address))
-    if peers.get(peer.hash) == peers.our_hash:
+    if peers.get(peer.hash).hash == peers.us.hash:
         logging.debug("We own the keyspace. Allowing peer to join")
         # They do belong to our keyspace
         sendStatus(conn, Result.T)
 
         # Alert client of their successors
         succ1, succ2 = peers.get_successors()
-        sendAddress(succ1.address) 
-        sendAddress(succ2.address) 
+        sendAddress(conn, succ1.address) 
+        sendAddress(conn, succ2.address) 
         
         # Update our successor list
         peers.set_successors(peer, succ1)
+        succ1, succ2 = peers.get_successors()
         logging.debug("New successors:\n{}\n{}".format(succ1, succ2))
 
         # Determine what items need to be sent over to client
@@ -399,7 +400,7 @@ def peer_connect(conn):
             Note: key MUST be within our keyspace. This will be broken otherwise
             """
             # TODO: Verify interval for key
-            if key <= peer.hash or key < peers.our_hash:
+            if key <= peer.hash or key < peers.us.hash:
                 logging.debug("{} will be transfered".format(key))
                 return True
             logging.debug("{} will NOT be transfered".format(key))
@@ -420,12 +421,13 @@ def peer_connect(conn):
         sendStatus(conn, Result.N)
 
 def peer_disconnect(conn):
-    addr = recvAddress(conn)
+    addr = get_addr_str(recvAddress(conn))
     logging.debug("{} wants to disconnect. shameful display".format(addr))
     
     # Check if they're our successor
     succ, _ = peers.get_successors()
 
+    logging.debug("Our successor is {}".format(succ))
     if addr == succ.address:
         logging.debug("{} IS our successor. Allowing disconnect".format(addr))
         # We will take the keys
