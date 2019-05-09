@@ -222,7 +222,7 @@ def pulse(conn):
     conn.sendall("PUL".encode())
 
     #Start up another process that waits 5 seconds for a response.
-    p = multiprocessing.Process(target=pulse_response)
+    p = multiprocessing.Process(target=pulse_response, args=(conn,))
     p.start()
 
     p.join(5)
@@ -299,7 +299,7 @@ def peer_owns(conn, key):
     closest = peers.get(key)
     # Pulse peer
     conn = open_connection(closest.address)
-    if pulse(conn):
+    if closest.address == peers.us.address or pulse(conn):
         # Tell peer they're good
         sendAddress(conn, closest.address)
     else:
@@ -404,7 +404,7 @@ def peer_disconnect(conn):
     else:
         sendStatus(conn, Result.N)
 
-def pulse_response():
+def pulse_response(conn):
     response = recvStatus(conn);
 
 def insert_val(key, val):
