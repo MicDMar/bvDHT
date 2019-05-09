@@ -413,26 +413,33 @@ def peer_connect(conn):
 
 def peer_disconnect(conn):
     addr = getAddress(conn)
+    logging.debug("{} wants to disconnect. shameful display".format(addr))
     
     # Check if they're our successor
     succ, _ = peers.get_successors()
 
     if addr == succ.address:
+        logging.debug("{} IS our successor. Allowing disconnect".format(addr))
         # We will take the keys
         sendStatus(conn, Result.T)
         
         succ0 = Peer(*recvAddress(conn))
         succ1 = Peer(*recvAddress(conn))
         peers.set_successors(succ0, succ1)
+        logging.debug("New Successors: \n{}\n{}".format(succ0, succ1))
 
         num_items = recvInt(conn)
+        logging.debug("Receiving {} items".format(num_items))
         for i in range(num_items):
             key = recvKey(conn)
             val = recvVal(conn)
+            logging.debug("Received {}: {} bytes".format(key, len(val)))
             insert_val(key, val)
 
+        logging.debug("Successfully received all items")
         sendStatus(conn, Result.T)
     else:
+        logging.debug("{} is not our successor. They won't be leaving from us".format(addr))
         sendStatus(conn, Result.N)
 
 def pulse_response(conn):
