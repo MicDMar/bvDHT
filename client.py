@@ -96,14 +96,15 @@ def disconnect():
                 sendKey(conn, key)
                 sendVal(conn, get_val(key))
 
-            # TODO: Timeout for if they aren't listening
             if recvStatus(conn) == Result.T:
                 logging.debug("Successfully disconnected")
                 # Success!
                 return
+        
         elif response == Result.N:
             logging.debug("{} will not accept disconnect".format(pred.address))
             continue
+    
     lock.release()
 
 #Start of "public" functions.
@@ -167,7 +168,6 @@ def insert(key, value):
     logging.debug("Owner of key is {}".format(owner)) 
     conn = open_connection(owner) 
     
-    # TODO
     conn.sendall("INS".encode()) 
     sendKey(conn, key)
     result = recvStatus(conn)
@@ -183,7 +183,6 @@ def insert(key, value):
     elif result == Result.N:
         logging.debug("{} does not own the keyspace for {}".format(owner, key))
         # We need to find the actual owner, it changed 
-        # TODO: Make sure this is okay
         insert(key, value)
 
 
@@ -293,7 +292,6 @@ def peer_owns(conn, key):
         logging.debug("Peer didn't respond to pulse. Removing from table")
         # Remove cloest from peer list 
         peers.remove(closest.address)
-        # TODO: Verify this can't cause any problems if the new peer is dead
         closest = peers.get(key).address
         logging.debug("Next closest is {}".format(closest))
         sendAddress(conn, closest)
@@ -356,12 +354,18 @@ def peer_connect(conn):
             Given a key within our keyspace, check if it is eligible to transfer to peer
             Note: key MUST be within our keyspace. This will be broken otherwise
             """
-            # TODO: Verify interval for key
-            if key <= peer.hash or key < peers.us.hash:
-                logging.debug("{} will be transfered".format(key))
-                return True
-            logging.debug("{} will NOT be transfered".format(key))
-            return False
+            if peer.hash < peers.us.hash:
+                if key <= peer.hash or key < peers.us.hash:
+                    logging.debug("{} will be transfered".format(key))
+                    return True
+                logging.debug("{} will NOT be transfered".format(key))
+                return False
+            else:
+                if peers.us.hash < key <= peer.hash:
+                    logging.debug("{} will be transfered".format(key))
+                    return True
+                logging.debug("{} will NOT be transfered".format(key))
+                return False
         keys = [k for k in keys_local() if check_transfer_ownership(int(k))] 
 
         sendInt(conn, len(keys))
@@ -371,7 +375,7 @@ def peer_connect(conn):
         # Receive confirmation that items were accepted
         sendBool(conn, True)
 
-        # TODO: Give up control of the keys (delete)
+        # Give up control of the keys (delete)
         for key in keys:
             remove_val(key)
     else:
@@ -444,7 +448,7 @@ def exists_local(key):
     Check if the item exists locally
     (If we don't own the key space then it does not)
     """
-    # TODO: Check if this is our key
+    # Check if this is our key
     return os.path.isfile(repo_path(key))
 
 def repo_path(key=None):
