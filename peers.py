@@ -17,12 +17,14 @@ def handle_table(table):
     while True:
         #Check to see if each peer in the table is alive or not.
         for peer in copy.deepcopy(table.table):
+            address = peer.address
             try:
                 conn = open_connection(peer.address)
-                if pulse(peer.address) == False:
-                    table.remove(peer.addresss)
-            except:
-                table.remove(peer.addresss)
+                if pulse(address) == False:
+                    table.remove(address)
+            except ConnectionRefusedError:
+                debug("Peer in exception: {}".format(peer))
+                table.remove(address)
             
         #Find a random offset and add the peer to our finger table if they aren't already in there
         for i in range(0, table.size-len(table.table)):
@@ -65,6 +67,8 @@ class FingerTable:
     def get(self, hsh):
         options = [x for x in self.table if x.hash <= hsh]
         if len(options) == 0:
+            if len(self.table) == 0:
+                return self.us
             return max(self.table, key=lambda p: p.hash)
         else:
             # Find the 'closest' owner of this hash
