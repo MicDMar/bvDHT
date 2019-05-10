@@ -13,6 +13,10 @@ MAX_TABLE_SIZE = 5
 TABLE_OFFSET_PERCENT = 0.2
 
 def handle_table(table):
+    # Configure logging
+    logging.basicConfig(format='%(levelname)s %(asctime)s({}) %(funcName)s: %(message)s [%(thread)s] %(lineno)d'.format(table.us.address), \
+            level=logging.DEBUG)
+    
     #Have this function always running to maintian a healty finger table.
     while True:
         #Check to see if each peer in the table is alive or not.
@@ -45,7 +49,7 @@ def handle_table(table):
             else:
                 table.add_address(peer_to_add)
 
-        sleep(10)
+        sleep(60)
 
 class Peer:
     def __init__(self, address, port):
@@ -63,6 +67,7 @@ class FingerTable:
         Thread(target=handle_table, args=(self,)).start()
         self.successors = []
         self.predecessor = None
+        
 
     def get(self, hsh):
         options = [x for x in self.table if x.hash <= hsh]
