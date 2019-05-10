@@ -91,7 +91,8 @@ class FingerTable:
 
     def add(self, peer):
         # FIXME: Enforce size limit, remove items if needed
-        self.table.append(peer)
+        if self.contains(peer.address) == False:
+            self.table.append(peer)
 
     def add_address(self, peer_addr):
         self.add(Peer(*get_addr_tuple(peer_addr)))
@@ -131,7 +132,12 @@ class FingerTable:
         s = ""
         for peer in self.table:
             s += "  {},\n".format(peer)
-        return "<FingerTable({}): [\n{}]>".format(self.us.address, s[:])
+
+        pred = "Predecessor: {}".format(self.predecessor)
+        successors = "Successors: \n    {}\n    {}".format(*self.successors) \
+                if self.successors else "Successors: None"
+        return "<FingerTable({}): [\n{}] {}\n {}>" \
+                .format(self.us.address, s[:], pred, successors)
 
     def owns(self, key, peer=None):
         """
