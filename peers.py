@@ -71,8 +71,6 @@ class FingerTable:
         self.table = [self.us]
         Thread(target=handle_table, args=(self,)).start()
         self.successors = []
-        self.predecessor = None
-        
 
     def get(self, hsh):
         options = [x for x in self.table if x.hash <= hsh]
@@ -105,12 +103,8 @@ class FingerTable:
     def get_successors(self):
         return self.successors
 
-    def set_predecessor(self, peer):
-        self.predecessor = peer
-        self.add(self.predecessor)
-
     def get_predecessor(self):
-        return self.predecessor
+        return self.owns(self.prev_hash())
 
     def remove(self, peer_addr):
         self.table = [x for x in self.table if x.address != peer_addr]
@@ -133,11 +127,10 @@ class FingerTable:
         for peer in self.table:
             s += "  {},\n".format(peer)
 
-        pred = "Predecessor: {}".format(self.predecessor)
         successors = "Successors: \n    {}\n    {}".format(*self.successors) \
                 if self.successors else "Successors: None"
-        return "<FingerTable({}): [\n{}] {}\n {}>" \
-                .format(self.us.address, s[:], pred, successors)
+        return "<FingerTable({}): [\n{}] {}>" \
+                .format(self.us.address, s[:], successors)
 
     def owns(self, key, peer=None):
         """

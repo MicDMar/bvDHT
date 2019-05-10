@@ -26,7 +26,6 @@ def connect(peer_addr):
     
     # Find the hash right before ours
     peer_addr = peers.owns(peers.prev_hash(), peer_addr)
-    peers.set_predecessor(Peer(*get_addr_tuple(peer_addr)))
     logging.debug("Predecessor found: {}".format(peer_addr))
 
     conn = open_connection(peer_addr)
@@ -73,8 +72,8 @@ def disconnect():
             logging.debug("No predecessor. Leaving now.")
             return
             
-        logging.debug("Disconnecting through {}".format(pred.address))
-        conn = open_connection(pred.address)
+        logging.debug("Disconnecting through {}".format(pred))
+        conn = open_connection(pred)
         conn.sendall("DIS".encode()) 
         sendAddress(conn, peers.us.address)
 
@@ -366,7 +365,7 @@ def peer_connect(conn):
                     return True
                 logging.debug("{} will NOT be transfered".format(key))
                 return False
-        keys = [k for k in keys_local() if check_transfer_ownership(int(k))] 
+        keys = [int(k) for k in keys_local() if check_transfer_ownership(int(k))] 
 
         sendInt(conn, len(keys))
         for key in keys:
