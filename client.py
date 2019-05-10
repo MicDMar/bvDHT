@@ -508,11 +508,11 @@ def handle_connection(conn_info):
 
 def handle_cli():
     def print_commands():
-        print("Options are: insert,remove,get,exists,disconnect,help")
+        print("Options are: insert, remove, get, exists, disconnect, help")
         
     while True:
         print_commands()
-        command = input("What would you like to do? ")
+        command = input("What would you like to do? ").lower()
         
         if command == "insert":
             name = get_hash(input("Enter the name of the data: "))
@@ -568,10 +568,6 @@ if __name__ == "__main__":
     else:
         # Add ourselves as our successors
         peers.set_successors(Peer(local_ip, port), Peer(local_ip, port))
-
-    # TODO: Populate fingertable with peers from the circle 
-
-    # TODO: Launch a thread to manage fingertable
 
     # Setup the TCP socket
     listener = socket(AF_INET, SOCK_STREAM)
