@@ -208,6 +208,9 @@ def remove(key):
 
 def pulse(peer_addr):
     logging.debug("Attempting to pulse {}".format(peer_addr))
+    if peer_addr == peers.us.addr:
+        return True
+    
     conn = open_connection(peer_addr)
     #Client sends protocol message for PULSE request.
     conn.sendall("PUL".encode())

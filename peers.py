@@ -13,7 +13,7 @@ MAX_TABLE_SIZE = 5
 TABLE_OFFSET_PERCENT = 0.2
 
 def handle_table(table):
-    sleep(10)
+    sleep(5)
     # Configure logging
     logging.basicConfig(format='%(levelname)s %(asctime)s({}) %(funcName)s: %(message)s [%(thread)s] %(lineno)d'.format(table.us.address), \
             level=logging.DEBUG)
@@ -136,6 +136,10 @@ class FingerTable:
         """
         Using peer as a starting point, find the owner
         """
+        # If the key is ours, return us
+        if self.get(key).hash == self.us.hash:
+            return self.us.address
+        
         if peer == None:
             logging.debug("Attempting to find owner of {}".format(key))
             return self.owns(key, self.get(key).address) 
