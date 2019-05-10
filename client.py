@@ -26,7 +26,7 @@ def connect(peer_addr):
     peers.add_address(peer_addr)
     
     # Find the hash right before ours
-    peer_addr = owns(peers.prev_hash(), peer_addr)
+    peer_addr = peers.owns(peers.prev_hash(), peer_addr)
     peers.set_predecessor(Peer(*get_addr_tuple(peer_addr)))
     logging.debug("Predecessor found: {}".format(peer_addr))
 
@@ -108,7 +108,7 @@ def disconnect():
 def exists(key):
     #Client sends protocol message for EXISTS request.
     logging.debug("Attempting to see if {} exists".format(key))
-    peer_addr = owns(key)
+    peer_addr = peers.owns(key)
     conn = open_connection(peer_addr)
     
     conn.sendall("EXI".encode())
@@ -130,7 +130,7 @@ def exists(key):
 def get(key):
     #Client sends protocol message for GET request.
     logging.debug("Attempting to get {}".format(key))
-    peer_addr = owns(key)
+    peer_addr = peers.owns(key)
 
     conn = open_connection(peer_addr)
     logging.debug("Connection opened with {}".format(peer_addr))
@@ -160,7 +160,7 @@ def get(key):
 def insert(key, value):
     # Identify who to send to
     logging.debug("Attempting to add {} to DHT".format(key))
-    owner = owns(key)
+    owner = peers.owns(key)
     logging.debug("Owner of key is {}".format(owner)) 
     conn = open_connection(owner) 
     
@@ -183,39 +183,11 @@ def insert(key, value):
         # TODO: Make sure this is okay
         insert(key, value)
 
-    
-
-def owns(key, peer=None):
-    """
-    Using peer as a starting point, find the owner
-    """
-    if peer == None:
-        logging.debug("Attempting to find owner of {}".format(key))
-        return owns(key, peers.get(key).address) 
-    
-    logging.debug("Checking owner of {} through {}".format(key, peer))
-        
-    # TODO: Perhaps change this to be non-recursive
-    # Check if peer owns the hash
-    conn = open_connection(peer)
-    conn.sendall("OWN".encode())    
-    sendKey(conn, key)
-
-    # Check if the closest reported is the same as the peer we're querying
-    closest = get_addr_str(recvAddress(conn))
-    logging.debug("{} reported closest peer as {}".format(peer, closest))
-    if closest == peer:
-        logging.debug("{} is the owner of {}".format(peer, key))
-        # This is the owner of the file
-        return peer
-    else:
-        # We need to go deeper
-        return owns(key, closest)
 
 def remove(key):
     #client sends protocol message for REMOVE request.
 
-    conn = open_connection(owns(key))
+    conn = open_connection(peers.owns(key))
 
     conn.sendall("REM".encode())
     sendKey(conn, key)
@@ -224,7 +196,7 @@ def remove(key):
     #Peer does not own this keyspace. Find out who does
     if response == Result.N:
         logging.debug("Peer does not own {}".format(key))
-        owns(key, conn)
+        peer.owns(key, conn)
 
     #At this point either the item was removed successfully or it wasn't
     if response == Result.T:
@@ -260,7 +232,7 @@ def pulse(peer_addr):
 def peer_exists(conn, key):
     #Check to see if we own the specified key
     logging.debug("Peer asking if {} exists".format(key))
-    if owns(key, peers.get(key).address) == peers.us.address:
+    if peers.owns(key, peers.get(key).address) == peers.us.address:
         logging.debug("We own {}".format(key))
         data = get_val(key)
         
@@ -285,7 +257,7 @@ def peer_get(conn, key):
     logging.debug("Attempting to get {}".format(key))
 
     #Check to see if we own the specified key
-    if owns(key, peers.get(key).address) == peers.us.address:
+    if peers.owns(key, peers.get(key).address) == peers.us.address:
         data = get_val(key)
 
         #Nothing exists at the specified key
@@ -350,7 +322,7 @@ def peer_remove(conn, key):
     logging.debug("Attempting to remove {}".format(key))
 
     #Check to see if we own the specified key
-    if owns(key, peers.get(key).address) == peers.us.address:
+    if peers.owns(key, peers.get(key).address) == peers.us.address:
         data = get_val(key)
 
         #Nothing exists at the specified key so it can't be removed

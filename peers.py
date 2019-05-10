@@ -1,12 +1,13 @@
 from hash_functions import get_hash, hash_size
 
-from client import owns, pulse, open_connection
+from client import pulse
 from logging import debug
 from net_functions import *
 from threading import Thread
 import random
 from hash_functions import hash_size
 from time import sleep
+import copy
 
 MAX_TABLE_SIZE = 5
 TABLE_OFFSET_PERCENT = 0.2
@@ -15,13 +16,16 @@ def handle_table(table):
     #Have this function always running to maintian a healty finger table.
     while True:
         #Check to see if each peer in the table is alive or not.
-        for peer in table:
-            conn = open_connection(peer)
-            if pulse(peer.address) == False:
+        for peer in copy.deepcopy(table.table):
+            try:
+                conn = open_connection(peer.address)
+                if pulse(peer.address) == False:
+                    table.remove(peer.addresss)
+            except:
                 table.remove(peer.addresss)
-        
+            
         #Find a random offset and add the peer to our finger table if they aren't already in there
-        for i in range(0, table.size-len(table.table))
+        for i in range(0, table.size-len(table.table)):
             rand = random.randint(0, hash_size())
             table_offset = hash_size()*TABLE_OFFSET_PERCENT
             
@@ -31,7 +35,7 @@ def handle_table(table):
             while bottom < rand < top:
                 rand = random.randint(0, hash_size())
            
-            peer_to_add = owns(rand)
+            peer_to_add = table.owns(rand)
 
             #This check makes sure peers aren't added twice in our finger table.
             if table.contains(peer_to_add):
@@ -54,7 +58,7 @@ class FingerTable:
         self.us = Peer(our_address, port)
         self.size = size
         self.table = [self.us]
-        Thread(target=handle_table, args=(self,))
+        Thread(target=handle_table, args=(self,)).start()
         self.successors = []
         self.predecessor = None
 
@@ -66,7 +70,7 @@ class FingerTable:
             # Find the 'closest' owner of this hash
             return max(options, key=lambda p: p.hash)
     
-    def contains(addr):
+    def contains(self, addr):
         return len([x for x in self.table if x.address == addr]) >= 1
 
         
@@ -114,4 +118,31 @@ class FingerTable:
         for peer in self.table:
             s += "  {},\n".format(peer)
         return "<FingerTable({}): [\n{}]>".format(self.us.address, s[:])
+
+    def owns(self, key, peer=None):
+        """
+        Using peer as a starting point, find the owner
+        """
+        if peer == None:
+            logging.debug("Attempting to find owner of {}".format(key))
+            return self.owns(key, self.get(key).address) 
+        
+        debug("Checking owner of {} through {}".format(key, peer))
+            
+        # TODO: Perhaps change this to be non-recursive
+        # Check if peer self.owns the hash
+        conn = open_connection(peer)
+        conn.sendall("OWN".encode())    
+        sendKey(conn, key)
+
+        # Check if the closest reported is the same as the peer we're querying
+        closest = get_addr_str(recvAddress(conn))
+        debug("{} reported closest peer as {}".format(peer, closest))
+        if closest == peer:
+            logging.debug("{} is the owner of {}".format(peer, key))
+            # This is the owner of the file
+            return peer
+        else:
+            # We need to go deeper
+            return self.owns(key, closest)
 
