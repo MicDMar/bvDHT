@@ -354,7 +354,7 @@ def peer_connect(conn):
             Note: key MUST be within our keyspace. This will be broken otherwise
             """
             if peer.hash < peers.us.hash:
-                if key <= peer.hash or key < peers.us.hash:
+                if key <= peer.hash or key > peers.us.hash:
                     logging.debug("{} will be transfered".format(key))
                     return True
                 logging.debug("{} will NOT be transfered".format(key))
@@ -365,10 +365,12 @@ def peer_connect(conn):
                     return True
                 logging.debug("{} will NOT be transfered".format(key))
                 return False
+            
         keys = [int(k) for k in keys_local() if check_transfer_ownership(int(k))] 
 
         sendInt(conn, len(keys))
         for key in keys:
+            sendKey(conn, key)
             sendVal(conn, get_val(key))
 
         # Receive confirmation that items were accepted
