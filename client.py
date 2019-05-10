@@ -328,7 +328,9 @@ def peer_info(conn):
     """
     Send diagnostic information to a peer
     """
+    logging.debug("Sending info to peer")
     res = "{}\n{}".format(peers, local_info())
+    logging.debug("info: {}".format(res))
     sendVal(conn, res.encode()) 
 
 def peer_connect(conn):
