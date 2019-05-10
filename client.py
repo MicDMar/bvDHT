@@ -71,7 +71,7 @@ def disconnect():
         pred = peers.get_predecessor()
         if pred is None:
             logging.debug("No predecessor. Leaving now.")
-            sys.exit(0)
+            return
             
         logging.debug("Disconnecting through {}".format(pred.address))
         conn = open_connection(pred.address)
@@ -100,7 +100,6 @@ def disconnect():
             if recvStatus(conn) == Result.T:
                 logging.debug("Successfully disconnected")
                 # Success!
-                sys.exit(0)
                 return
         elif response == Result.N:
             logging.debug("{} will not accept disconnect".format(pred.address))
@@ -540,11 +539,22 @@ def handle_cli():
                 print("{} does not exist.".format(name))
         elif command == "disconnect":
             disconnect()
-            pass
+            return
         elif command == "help":
             print_commands()
-            pass
         
+def listen(local_ip, port):
+    # Setup the TCP socket
+    listener = socket(AF_INET, SOCK_STREAM)
+    listener.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1) # Allow address to be reused
+    listener.bind((local_ip, port))
+    listener.listen()
+    logging.info("Server is listening on {}:{}".format(local_ip, port))
+
+    while True:
+        threading.Thread(target=handle_connection, args=(listener.accept(),), daemon=True).start()
+                
+    
 if __name__ == "__main__":
     # The address of the first peer to connect to
     address = None
@@ -557,6 +567,14 @@ if __name__ == "__main__":
     port = int(os.environ.get('PORT', DEFAULT_PORT))
     REPO_PATH = os.environ.get('REPOSITORY', DEFAULT_REPO_PATH)
 
+    if os.path.exists(REPO_PATH):
+        # Delete all files
+        for item in os.listdir(REPO_PATH):
+            os.unlink(repo_path(item))
+    else:
+        # Create the folder
+        os.makedirs(REPO_PATH)
+        
     local_ip = getLocalIPAddress()
     local_addr = "{}:{}".format(local_ip, port)
     peers = FingerTable(local_ip, port)
@@ -576,21 +594,15 @@ if __name__ == "__main__":
         # Add ourselves as our successors
         peers.set_successors(Peer(local_ip, port), Peer(local_ip, port))
 
-    # Setup the TCP socket
-    listener = socket(AF_INET, SOCK_STREAM)
-    listener.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1) # Allow address to be reused
-    listener.bind((local_ip, port))
-    listener.listen()
-    logging.info("Server is listening on {}:{}".format(local_ip, port))
+    # Launch a thread to accept connections
+    threading.Thread(target=listen, args=(local_ip, port), daemon=True).start()
+    
+    try:
+        handle_cli()
 
-    threading.Thread(target=handle_cli).start()
-
-    while True:
-        try:
-            threading.Thread(target=handle_connection, args=(listener.accept(),), daemon=True).start()
-        except KeyboardInterrupt:
-            logging.info("Exit requested. Disconnecting.")
-            disconnect()
-            logging.info("Goodbye")
-            break
-
+    except KeyboardInterrupt:
+        logging.info("Exit requested. Disconnecting.")
+        disconnect()
+        logging.info("Goodbye")
+        raise SystemExit
+    
