@@ -84,6 +84,7 @@ def sendAddress(conn, addr):
 def recvAddress(conn):
     msgLen = recvInt(conn)
     strAddr = recvAll(conn, msgLen).decode().split(":")
+    logging.debug("Received address: {}".format(strAddr))
     return (strAddr[0], int(strAddr[1]))
 
 def getLocalIPAddress():

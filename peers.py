@@ -13,12 +13,14 @@ MAX_TABLE_SIZE = 5
 TABLE_OFFSET_PERCENT = 0.2
 
 def handle_table(table):
+    sleep(10)
     # Configure logging
     logging.basicConfig(format='%(levelname)s %(asctime)s({}) %(funcName)s: %(message)s [%(thread)s] %(lineno)d'.format(table.us.address), \
             level=logging.DEBUG)
     
     #Have this function always running to maintian a healty finger table.
     while True:
+        debug("Starting pulse process")
         #Check to see if each peer in the table is alive or not.
         for peer in copy.deepcopy(table.table):
             address = peer.address
@@ -31,23 +33,25 @@ def handle_table(table):
                 table.remove(address)
             
         #Find a random offset and add the peer to our finger table if they aren't already in there
-        for i in range(0, table.size-len(table.table)):
-            rand = random.randint(0, hash_size())
-            table_offset = hash_size()*TABLE_OFFSET_PERCENT
-            
-            bottom = table.us.hash-table_offset
-            top = table.us.hash+table_offset
-            
-            while bottom < rand < top:
+        diff = table.size-len(table.table)
+        if diff > 0:
+            for i in range(0, diff):
                 rand = random.randint(0, hash_size())
-           
-            peer_to_add = table.owns(rand)
+                table_offset = hash_size()*TABLE_OFFSET_PERCENT
+                
+                bottom = table.us.hash-table_offset
+                top = table.us.hash+table_offset
+                
+                while bottom < rand < top:
+                    rand = random.randint(0, hash_size())
+               
+                peer_to_add = table.owns(rand)
 
-            #This check makes sure peers aren't added twice in our finger table.
-            if table.contains(peer_to_add):
-                continue
-            else:
-                table.add_address(peer_to_add)
+                #This check makes sure peers aren't added twice in our finger table.
+                if table.contains(peer_to_add):
+                    continue
+                else:
+                    table.add_address(peer_to_add)
 
         sleep(60)
 
