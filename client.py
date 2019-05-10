@@ -64,42 +64,47 @@ def disconnect():
         return
     logging.debug("Attemtping to acquire lock for disconnect")
     lock.acquire()
-    # TODO: Wrap this in a loop up until we get to leave
-    pred = peers.get_predecessor()
-    if pred is None:
-        sys.exit(0)
-        
-    logging.debug("Disconnecting through {}".format(pred.address))
-    conn = open_connection(pred.address)
-    conn.sendall("DIS".encode()) 
-    sendAddress(conn, peers.us.address)
-
-    response = recvStatus(conn)
-    if response == Result.T:
-        logging.debug("Predecessor will accept disconnect")
-        succ1, succ2 = peers.get_successors()
-
-        sendAddress(conn, succ1.address)
-        sendAddress(conn, succ2.address)
-        logging.debug("Sent successors: \n{}\n{}".format(succ1, succ2))
-
-        keys = keys_local()
-        sendInt(conn, len(keys))
-        logging.debug("Sending {} keys".format(len(keys)))
-
-        for key in keys:
-            key = int(key)
-            sendKey(conn, key)
-            sendVal(conn, get_val(key))
-
-        # TODO: Timeout for if they aren't listening
-        if recvStatus(conn) == Result.T:
-            logging.debug("Successfully disconnected")
-            # Success!
+    logging.debug("Lock acquired")
+    
+    # Keep going until they let us be free
+    while True:
+        pred = peers.get_predecessor()
+        if pred is None:
+            logging.debug("No predecessor. Leaving now.")
             sys.exit(0)
-            return
-    elif response == Result.N:
-        logging.debug("{} will not accept disconnect".format(pred.address))
+            
+        logging.debug("Disconnecting through {}".format(pred.address))
+        conn = open_connection(pred.address)
+        conn.sendall("DIS".encode()) 
+        sendAddress(conn, peers.us.address)
+
+        response = recvStatus(conn)
+        if response == Result.T:
+            logging.debug("Predecessor will accept disconnect")
+            succ1, succ2 = peers.get_successors()
+
+            sendAddress(conn, succ1.address)
+            sendAddress(conn, succ2.address)
+            logging.debug("Sent successors: \n{}\n{}".format(succ1, succ2))
+
+            keys = keys_local()
+            sendInt(conn, len(keys))
+            logging.debug("Sending {} keys".format(len(keys)))
+
+            for key in keys:
+                key = int(key)
+                sendKey(conn, key)
+                sendVal(conn, get_val(key))
+
+            # TODO: Timeout for if they aren't listening
+            if recvStatus(conn) == Result.T:
+                logging.debug("Successfully disconnected")
+                # Success!
+                sys.exit(0)
+                return
+        elif response == Result.N:
+            logging.debug("{} will not accept disconnect".format(pred.address))
+            continue
     lock.release()
 
 #Start of "public" functions.
