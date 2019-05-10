@@ -212,7 +212,7 @@ def peer_exists(conn, key):
         logging.debug("We own {}".format(key))
         data = get_val(key)
         
-        if key in keys_local():
+        if str(key) in keys_local():
             #Something does exist at the specified key
             logging.debug("{} is in our repo".format(key))
             sendStatus(conn, Result.T)
