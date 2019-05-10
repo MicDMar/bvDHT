@@ -3,7 +3,6 @@ from net_functions import *
 import hashlib
 import logging
 import math
-import multiprocessing
 import os
 import sys
 import threading
@@ -206,32 +205,6 @@ def remove(key):
         logging.debug("Couldn't remove {}".format(key))
         return False
 
-def pulse(peer_addr):
-    logging.debug("Attempting to pulse {}".format(peer_addr))
-    if peer_addr == peers.us.addr:
-        return True
-    
-    conn = open_connection(peer_addr)
-    #Client sends protocol message for PULSE request.
-    conn.sendall("PUL".encode())
-
-    logging.debug("Spawning process for pulse")
-    #Start up another process that waits 5 seconds for a response.
-    p = multiprocessing.Process(target=pulse_response, args=(conn,))
-    p.start()
-
-    p.join(5)
-    
-    #If the peer hasn't sent us a pulse response within the allotted time
-    #kill the function; peer is dead.
-    if p.is_alive():
-        logging.debug("Pulse response never returned. Killing function call.")
-        p.terminate()
-        p.join()
-        return False
-    
-    return True
-    
 def peer_exists(conn, key):
     #Check to see if we own the specified key
     logging.debug("Peer asking if {} exists".format(key))
@@ -308,7 +281,7 @@ def peer_owns(conn, key):
         
     # Pulse peer
     logging.debug("About to pulse {} if not us".format(closest))
-    if closest.address == peers.us.address or pulse(closest.address):
+    if closest.address == peers.us.address or peers.pulse(closest.address):
         logging.debug("Closest known is alive and well, or us")
         # Tell peer they're good
         sendAddress(conn, closest.address)

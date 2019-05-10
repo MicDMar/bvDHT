@@ -1,7 +1,8 @@
 from hash_functions import get_hash, hash_size
 
-from client import pulse
+from client import pulse_response
 from logging import debug
+import multiprocessing
 from net_functions import *
 from threading import Thread
 import random
@@ -26,7 +27,7 @@ def handle_table(table):
             address = peer.address
             try:
                 conn = open_connection(peer.address)
-                if pulse(address) == False:
+                if table.pulse(address) == False:
                     table.remove(address)
             except ConnectionRefusedError:
                 debug("Peer in exception: {}".format(peer))
@@ -163,3 +164,29 @@ class FingerTable:
             # We need to go deeper
             return self.owns(key, closest)
 
+    def pulse(self, peer_addr):
+        logging.debug("Attempting to pulse {}".format(peer_addr))
+        if peer_addr == self.us.address:
+            return True
+        
+        conn = open_connection(peer_addr)
+        #Client sends protocol message for PULSE request.
+        conn.sendall("PUL".encode())
+
+        logging.debug("Spawning process for pulse")
+        #Start up another process that waits 5 seconds for a response.
+        p = multiprocessing.Process(target=pulse_response, args=(conn,))
+        p.start()
+
+        p.join(5)
+        
+        #If the peer hasn't sent us a pulse response within the allotted time
+        #kill the function; peer is dead.
+        if p.is_alive():
+            logging.debug("Pulse response never returned. Killing function call.")
+            p.terminate()
+            p.join()
+            return False
+        
+        return True
+        
