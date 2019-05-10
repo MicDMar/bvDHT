@@ -11,11 +11,12 @@ class Peer:
         return "<Peer: {} : {}>".format(self.address, self.hash)
 
 class FingerTable:
-    def __init__(self, our_address, size=5):
-        self.us = Peer(our_address, get_hash(our_address))
+    def __init__(self, our_address, port, size=5):
+        self.us = Peer(our_address, port)
         self.size = size
         self.table = [self.us]
-        self.successors = [self.us, self.us]
+        self.successors = []
+        self.predecessor = None
 
     def get(self, hsh):
         options = [x for x in self.table if x.hash < hsh]

@@ -1,5 +1,6 @@
 from enum import Enum
 from socket import *
+import logging
 
 ############################
 ############################
@@ -17,6 +18,7 @@ def get_addr_str(addr_tuple):
     return "{}:{}".format(*addr_tuple)
 
 def open_connection(addr):
+    logging.debug("Opening connection to {}".format(addr))
     conn = socket(AF_INET, SOCK_STREAM)
     conn.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     conn.connect(get_addr_tuple(addr)) 

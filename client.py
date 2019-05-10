@@ -1,13 +1,13 @@
 from socket import *
 from net_functions import *
 import hashlib
+import logging
 import math
 import multiprocessing
 import os
 import sys
 import threading
 import time
-import logging
 
 from peers import *
 DEFAULT_PORT = 3000
@@ -26,8 +26,7 @@ def connect(peer_addr):
     peers.add_address(peer_addr)
     
     # Find the hash right before ours
-    closest_known = peers.get(peers.prev_hash())
-    peer_addr = owns(peers.prev_hash(), closest_known.address)
+    peer_addr = owns(peers.prev_hash(), peer_addr)
     peers.set_predecessor(Peer(*get_addr_tuple(peer_addr)))
     logging.debug("Predecessor found: {}".format(peer_addr))
 
@@ -65,41 +64,44 @@ def disconnect():
         # We're the only one on the network, just leave
         return
     logging.debug("Attemtping to acquire lock for disconnect")
-    lock.acquire()
-    # TODO: Wrap this in a loop up until we get to leave
-    pred = peers.get_predecessor()
-    logging.debug("Disconnecting through {}".format(pred.address))
-    conn = open_connection(pred.address)
-    conn.sendall("DIS".encode()) 
-    sendAddress(conn, peers.us.address)
+    with lock:
+        # TODO: Wrap this in a loop up until we get to leave
+        pred = peers.get_predecessor()
+        if pred is None:
+            sys.exit(0)
+            
+        logging.debug("Disconnecting through {}".format(pred.address))
+        conn = open_connection(pred.address)
+        conn.sendall("DIS".encode()) 
+        sendAddress(conn, peers.us.address)
 
-    response = recvStatus(conn)
-    if response == Result.T:
-        logging.debug("Predecessor will accept disconnect")
-        succ1, succ2 = peers.get_successors()
+        response = recvStatus(conn)
+        if response == Result.T:
+            logging.debug("Predecessor will accept disconnect")
+            succ1, succ2 = peers.get_successors()
 
-        sendAddress(conn, succ1.address)
-        sendAddress(conn, succ2.address)
-        logging.debug("Sent successors: \n{}\n{}".format(succ1, succ2))
+            sendAddress(conn, succ1.address)
+            sendAddress(conn, succ2.address)
+            logging.debug("Sent successors: \n{}\n{}".format(succ1, succ2))
 
-        keys = keys_local()
-        sendInt(conn, len(keys))
-        logging.debug("Sending {} keys".format(len(keys)))
+            keys = keys_local()
+            sendInt(conn, len(keys))
+            logging.debug("Sending {} keys".format(len(keys)))
 
-        for key in keys:
-            key = int(key)
-            sendKey(conn, key)
-            sendVal(conn, get_val(key))
+            for key in keys:
+                key = int(key)
+                sendKey(conn, key)
+                sendVal(conn, get_val(key))
 
-        # TODO: Timeout for if they aren't listening
-        if recvStatus(conn) == Result.T:
-            logging.debug("Successfully disconnected")
-            # Success!
-            return
-    elif response == Result.N:
-        logging.debug("{} will not accept disconnect".format(pred.address))
+            # TODO: Timeout for if they aren't listening
+            if recvStatus(conn) == Result.T:
+                logging.debug("Successfully disconnected")
+                # Success!
+                sys.exit(0)
+                return
+        elif response == Result.N:
+            logging.debug("{} will not accept disconnect".format(pred.address))
     
-    lock.release()
 
 #Start of "public" functions.
 
@@ -110,7 +112,7 @@ def exists(key):
     conn = open_connection(peer_addr)
     
     conn.sendall("EXI".encode())
-    sendKey(key)
+    sendKey(conn, key)
     response = recvStatus(conn)
 
     #Peer does not own this keyspace. Find out who does.
@@ -131,15 +133,15 @@ def get(key):
     peer_addr = owns(key)
 
     conn = open_connection(peer_addr)
+    logging.debug("Connection opened with {}".format(peer_addr))
 
     conn.sendall("GET".encode())
     sendKey(conn, key)
     response = recvStatus(conn)
-    
     #They responded with T so they will also send valSize and fileData.
     if response == Result.T:
         logging.debug("{} is sending {}".format(peer_addr, key))
-        #Download the item. It exists and == there.
+        #Download the item. It exists and is there.
         fileData = recvVal(conn)
         print("-------------{}------------".format(fileData))
         #insert_val(hsh, fileData)
@@ -151,7 +153,8 @@ def get(key):
     
     #Peer does not own this keyspace. Find out who does.
     else:
-        owns(key)
+        logging.debug("Does not own space")
+        get(key)
         return
 
 def insert(key, value):
@@ -198,7 +201,7 @@ def owns(key, peer=None):
     conn.sendall("OWN".encode())    
     sendKey(conn, key)
 
-    # Check if the closest reported == the same as the peer we're querying
+    # Check if the closest reported is the same as the peer we're querying
     closest = get_addr_str(recvAddress(conn))
     logging.debug("{} reported closest peer as {}".format(peer, closest))
     if closest == peer:
@@ -225,10 +228,10 @@ def remove(key):
 
     #At this point either the item was removed successfully or it wasn't
     if response == Result.T:
-        logging.debug("Successfully removed {}".format())
+        logging.debug("Successfully removed {}".format(key))
         return True
     else:
-        logging.debug("Couldn't remove {}".format())
+        logging.debug("Couldn't remove {}".format(key))
         return False
 
 def pulse(peer_addr):
@@ -257,7 +260,7 @@ def pulse(peer_addr):
 def peer_exists(conn, key):
     #Check to see if we own the specified key
     logging.debug("Peer asking if {} exists".format(key))
-    if owns(key, peers.get(key).address) == peers.our_address:
+    if owns(key, peers.get(key).address) == peers.us.address:
         logging.debug("We own {}".format(key))
         data = get_val(key)
         
@@ -347,7 +350,7 @@ def peer_remove(conn, key):
     logging.debug("Attempting to remove {}".format(key))
 
     #Check to see if we own the specified key
-    if owns(key, peers.get(key).address) == peers.our_address:
+    if owns(key, peers.get(key).address) == peers.us.address:
         data = get_val(key)
 
         #Nothing exists at the specified key so it can't be removed
@@ -391,13 +394,12 @@ def peer_connect(conn):
         
         # Update our successor list
         peers.set_successors(peer, succ1)
-        succ1, succ2 = peers.get_successors()
-        logging.debug("New successors:\n{}\n{}".format(succ1, succ2))
+        logging.debug("New successors:\n{}\n{}".format(peer, succ1))
 
         # Determine what items need to be sent over to client
         def check_transfer_ownership(key):
             """
-            Given a key within our keyspace, check if it == eligible to transfer to peer
+            Given a key within our keyspace, check if it is eligible to transfer to peer
             Note: key MUST be within our keyspace. This will be broken otherwise
             """
             # TODO: Verify interval for key
@@ -488,7 +490,7 @@ def exists_local(key):
     Check if the item exists locally
     (If we don't own the key space then it does not)
     """
-    # TODO: Check if this == our key
+    # TODO: Check if this is our key
     return os.path.isfile(repo_path(key))
 
 def repo_path(key=None):
@@ -496,7 +498,9 @@ def repo_path(key=None):
     Get the path to the file corresponding to the key
     """
     if key:
-        return os.path.join(REPO_PATH, str(key))
+        ret = os.path.join(REPO_PATH, str(key))
+        logging.debug("Path for {} determined to be: {}".format(key, ret))
+        return ret
     else:
         return REPO_PATH
 
@@ -595,15 +599,15 @@ if __name__ == "__main__":
     else:
         address = os.environ.get('ADDRESS', None)
 
-    port = os.environ.get('PORT', DEFAULT_PORT)
+    port = int(os.environ.get('PORT', DEFAULT_PORT))
     REPO_PATH = os.environ.get('REPOSITORY', DEFAULT_REPO_PATH)
 
     local_ip = getLocalIPAddress()
     local_addr = "{}:{}".format(local_ip, port)
-    peers = FingerTable("{}:{}".format(local_ip, port))
+    peers = FingerTable(local_ip, port)
     
     # Configure logging
-    logging.basicConfig(format='%(levelname)s %(asctime)s({}): %(message)s [%(thread)s] %(lineno)d'.format(local_addr), \
+    logging.basicConfig(format='%(levelname)s %(asctime)s({}) %(funcName)s: %(message)s [%(thread)s] %(lineno)d'.format(local_addr), \
             level=logging.DEBUG)
 
     logging.debug(peers)
@@ -613,6 +617,9 @@ if __name__ == "__main__":
     if address:
         # Connect to DHT
         connect(address)
+    else:
+        # Add ourselves as our successors
+        peers.set_successors(Peer(local_ip, port), Peer(local_ip, port))
 
     # TODO: Populate fingertable with peers from the circle 
 
