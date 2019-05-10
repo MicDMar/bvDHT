@@ -586,9 +586,11 @@ if __name__ == "__main__":
     
     # Configure logging
     logging.basicConfig(format='%(levelname)s %(asctime)s({}) %(funcName)s: %(message)s [%(thread)s] %(lineno)d'.format(local_addr), \
-            level=logging.DEBUG)
-
-    logging.debug(peers)
+            # level=logging.DEBUG)
+            level=logging.INFO)
+    
+    # Launch a thread to accept connections
+    threading.Thread(target=listen, args=(local_ip, port), daemon=True).start()
 
     # Determine if we're the first person on the DHT
     # If so, call connect on the peer
@@ -599,9 +601,6 @@ if __name__ == "__main__":
         # Add ourselves as our successors
         peers.set_successors(Peer(local_ip, port), Peer(local_ip, port))
 
-    # Launch a thread to accept connections
-    threading.Thread(target=listen, args=(local_ip, port), daemon=True).start()
-    
     try:
         handle_cli()
 
